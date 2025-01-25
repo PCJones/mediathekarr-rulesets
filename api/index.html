@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Media Management</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="login-section">
+      <h2>Login</h2>
+      <form id="login-form">
+        <label for="username">Username:</label>
+        <input type="text" id="username" required>
+        <label for="password">Password:</label>
+        <input type="password" id="password" required>
+        <button type="submit">Login</button>
+      </form>
+      <p id="login-error" class="error"></p>
+    </div>
+
+    <div id="media-section" class="hidden">
+      <h2>Media</h2>
+      <button id="logout">Logout</button>
+      <button id="add-media-toggle">Add/Edit Media</button>
+      <div id="media-form-section" class="hidden">
+        <h3>Add/Edit Media</h3>
+        <form id="media-form">
+          <input type="text" id="media-name" placeholder="Name" required>
+          <select id="media-type">
+            <option value="movie">Movie</option>
+            <option value="show">Show</option>
+          </select>
+          <input type="number" id="media-tmdbId" placeholder="TMDB ID">
+          <input type="text" id="media-imdbId" placeholder="IMDB ID">
+          <input type="number" id="media-tvdbId" placeholder="TVDB ID">
+          <button type="submit">Save Media</button>
+        </form>
+      </div>
+      <div>
+        <label for="media-select">Select Media:</label>
+        <select id="media-select">
+          <option value="" disabled selected>-- Select Media --</option>
+        </select>
+      </div>
+      <div id="ruleset-section" class="hidden">
+        <h3>Rulesets for Selected Media</h3>
+        <ul id="ruleset-list"></ul>
+        <h4>Add/Edit Ruleset</h4>
+        <form id="ruleset-form">
+          <input type="text" id="ruleset-topic" placeholder="Topic" required>
+          <input type="number" id="ruleset-priority" placeholder="Priority" required>
+			<div id="filters-section">
+			  <h5>Filters</h5>
+			  <button type="button" id="add-filter">Add Filter</button>
+			  <ul id="filter-list"></ul>
+			  <pre id="filtersJSON" class="json-view"></pre>
+			</div>
+
+			<div id="title-regex-section">
+			  <h5>Title Regex Rules</h5>
+			  <button type="button" id="add-title-regex">Add Title Regex/Static Text</button>
+			  <ul id="title-regex-list"></ul>
+			  <pre id="titleRegexRulesJSON" class="json-view"></pre>
+			</div>
+          <textarea id="titleRegexRulesJSON" class="hidden" placeholder="Title Regex Rules (JSON Array)"></textarea>
+          <input type="text" id="episodeRegex" placeholder="Episode Regex">
+          <input type="text" id="seasonRegex" placeholder="Season Regex">
+          <select id="matchingStrategy">
+            <option value="SeasonAndEpisodeNumber">Season + Episode</option>
+            <option value="ItemTitleExact">Item Title Exact</option>
+            <option value="ItemTitleIncludes">Item Title Includes</option>
+            <option value="ItemTitleEqualsAirdate">Item Title Equals Airdate</option>
+          </select>
+          <button type="submit">Save Ruleset</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  padding: 0;
+  background: #f5f5f5;
+  color: #333;
+}
+
+.hidden {
+  display: none;
+}
+
+#error {
+  color: red;
+}
+
+form {
+  margin-bottom: 20px;
+}
+
+input, select, button {
+  margin: 10px 0;
+  padding: 8px;
+  font-size: 16px;
+}
+
+button {
+  cursor: pointer;
+}
+
+#error {
+  color: red;
+}
+
+#media-list {
+  list-style: none;
+  padding: 0;
+}
+
+#media-list li {
+  margin: 10px 0;
+  padding: 10px;
+  background: #ddd;
+  border-radius: 5px;
+}
