@@ -1,0 +1,41 @@
+:host {
+  display: block;
+  contain: content;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+.min-h-screen {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.container {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  box-sizing: border-box;
+}
+
+.grid {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.flex {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}

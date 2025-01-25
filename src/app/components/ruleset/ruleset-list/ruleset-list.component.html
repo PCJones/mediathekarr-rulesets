@@ -1,0 +1,7 @@
+<div *ngFor="let ruleset of rulesets">
+    <div class="ruleset-item">
+        <h3>{{ ruleset.topic }}</h3>
+        <button (click)="edit.emit(ruleset)">Edit</button>
+        <button (click)="delete.emit(ruleset)">Delete</button>
+        <button (click)="duplicate.emit(ruleset)">Duplicate</button>
+    </div>

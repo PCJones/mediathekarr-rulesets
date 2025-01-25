@@ -1,0 +1,164 @@
+<div id="editSection" class="lg:w-full bg-base-100 rounded-3xl shadow-2xl border border-base-content/10">
+  <div class="p-6 border-b border-base-content/10">
+    <div class="flex items-center gap-4">
+      <div class="w-2 h-12 bg-primary rounded-full"></div>
+      <h2 class="text-2xl font-bold">{{ editingRuleset ? 'Bearbeiten' : 'Hinzufügen' }} Ruleset</h2>
+    </div>
+  </div>
+
+  <!-- Form Section -->
+  <form [formGroup]="rulesetForm" (ngSubmit)="onSubmit()" class="p-6 space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="form-control">
+        <label class="label font-medium">Thema</label>
+        <input type="text" 
+               formControlName="topic" 
+               class="input bg-base-200/50 border-base-content/10 rounded-2xl transition-all duration-300 focus:ring-2 focus:ring-primary/50"
+               [placeholder]="mediaName"/>
+      </div>
+      
+      <div class="form-control">
+        <label class="label font-medium">Priority</label>
+        <input type="number" 
+               formControlName="priority" 
+               class="input bg-base-200/50 border-base-content/10 rounded-2xl transition-all duration-300 focus:ring-2 focus:ring-primary/50"
+               placeholder="Enter priority number"/>
+      </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div formArrayName="filters" class="space-y-4">
+      <div class="p-4 bg-base-200/30 rounded-2xl border border-base-content/5">
+        <h3 class="text-lg font-semibold mb-4">Filters</h3>
+        
+        <!-- Duration Info Display -->
+        <ng-container *ngIf="durationInfo?.calculatedMin && !editingRuleset">
+          <div class="mb-4 p-3 bg-base-200/50 rounded-xl border border-base-content/10">
+            <div class="flex items-center gap-2 text-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span class="font-medium">Automatisch berechneter Duration-Filter</span>
+            </div>
+            <div class="mt-2 ml-6 text-sm text-base-content/70">
+              <p>⌀ Laufzeit: {{ durationInfo.averageRuntime }}min</p>
+              <p>Analysierte Episoden: {{ durationInfo.episodeCount }}</p>
+              <p>Mindestlaufzeit (70%): {{ durationInfo.calculatedMin }}min</p>
+            </div>
+          </div>
+        </ng-container>
+
+        <app-ruleset-filter 
+          *ngFor="let filter of filters.controls; let i=index" 
+          [formGroup]="$any(filter)"
+          (remove)="removeFilter(i)">
+        </app-ruleset-filter>
+        <button type="button" 
+        class="btn btn-primary btn-sm rounded-2xl mt-4" 
+        (click)="addFilter()">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+  </svg>
+  Add Filter
+</button>
+
+<!-- Integrated JSON Editor for Filters -->
+<ng-container *ngIf="filters.length > 0">
+  <app-json-editor
+    [data]="filters.value"
+    label="Filters JSON"
+    (dataChange)="handleFiltersJsonUpdate($event)"
+    class="mt-4"
+  ></app-json-editor>
+</ng-container>
+</div>
+</div>
+
+<!-- Regex Rules Section -->
+<div formArrayName="titleRegexRules" class="space-y-4">
+<div class="p-4 bg-base-200/30 rounded-2xl border border-base-content/5">
+<h3 class="text-lg font-semibold mb-4">Regex Rules</h3>
+<app-regex-rule 
+  *ngFor="let rule of titleRegexRules.controls; let i=index"
+  [formGroup]="$any(rule)"
+  [predefinedRegexPatterns]="predefinedRegexPatterns"
+  (remove)="removeTitleRegexRule(i)">
+</app-regex-rule>
+<button type="button" 
+        class="btn btn-primary btn-sm rounded-2xl mt-4" 
+        (click)="addTitleRegexRule()">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+  </svg>
+  Add Rule
+</button>
+
+<!-- Integrated JSON Editor for Regex Rules -->
+<ng-container *ngIf="titleRegexRules.length > 0">
+  <app-json-editor
+    [data]="titleRegexRules.value"
+    label="Title Regex Rules JSON"
+    (dataChange)="handleRegexRulesJsonUpdate($event)"
+    class="mt-4"
+  ></app-json-editor>
+</ng-container>
+</div>
+</div>
+
+<!-- Season/Episode Pattern Section -->
+<div class="p-4 bg-base-200/30 rounded-2xl border border-base-content/5">
+<h3 class="text-lg font-semibold mb-4">Season/Episode Patterns</h3>
+<div class="grid grid-cols-1 gap-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="form-control">
+    <label class="label font-medium">Episode Regex</label>
+    <input type="text" 
+           formControlName="episodeRegex" 
+           class="input bg-base-200/50 border-base-content/10 rounded-2xl transition-all duration-300 focus:ring-2 focus:ring-primary/50"/>
+  </div>
+  <div class="form-control">
+    <label class="label font-medium">Season Regex</label>
+    <input type="text" 
+           formControlName="seasonRegex" 
+           class="input bg-base-200/50 border-base-content/10 rounded-2xl transition-all duration-300 focus:ring-2 focus:ring-primary/50"/>
+  </div>
+</div>
+
+<div class="form-control">
+  <label class="label font-medium">Predefined Patterns</label>
+  <select class="select bg-base-200/50 border-base-content/10 rounded-2xl transition-all duration-300 focus:ring-2 focus:ring-primary/50"
+          (change)="handleSeasonEpisodePatternChange($event)">
+    <option value="">Select Pattern</option>
+    <option *ngFor="let pattern of predefinedSeasonEpisodePatterns; let i = index" [value]="i">
+      {{pattern.name}}
+    </option>
+  </select>
+</div>
+
+<div class="form-control">
+  <label class="label font-medium">Matching Strategy</label>
+  <select formControlName="matchingStrategy" 
+          class="select bg-base-200/50 border-base-content/10 rounded-2xl transition-all duration-300 focus:ring-2 focus:ring-primary/50">
+    <option value="SeasonAndEpisodeNumber">Season + Episode</option>
+    <option value="ItemTitleExact">Item Title Exact</option>
+    <option value="ItemTitleIncludes">Item Title Includes</option>
+    <option value="ItemTitleEqualsAirdate">Item Title Equals Airdate</option>
+  </select>
+</div>
+</div>
+</div>
+
+<div class="flex gap-3 pt-4">
+<button type="button" 
+      class="btn btn-ghost flex-1 rounded-2xl" 
+      (click)="reset()">
+Abbrechen
+</button>
+<button type="submit" 
+      class="btn btn-primary flex-1 rounded-2xl" 
+      [disabled]="!rulesetForm.valid">
+{{ editingRuleset ? 'Update' : 'Speichern' }}
+</button>
+</div>
+</form>
+</div>
