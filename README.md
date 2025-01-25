@@ -1,6 +1,6 @@
 ### MediathekArr Rulesets
 
-Web app to define rulesets for shows/movies, used in [MediathekArr]([url](https://github.com/PCJones/mediathekarr))
+Web app to define rulesets for shows/movies, used in [MediathekArr](https://github.com/PCJones/mediathekarr)
 
 Important for setup:
 - Disable access to /api/database (.htaccess or something like that)
