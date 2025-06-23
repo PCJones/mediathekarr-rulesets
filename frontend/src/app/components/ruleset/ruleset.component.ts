@@ -93,7 +93,7 @@ export class RulesetComponent implements OnInit {
       });
   }
 
-  private durationInfo = {
+  public durationInfo = {
     averageRuntime: 0,
     episodeCount: 0,
     calculatedMin: 0
