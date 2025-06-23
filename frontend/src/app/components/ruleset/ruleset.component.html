@@ -55,7 +55,7 @@
              class="bg-base-200/30 rounded-2xl border border-base-content/5 p-4 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group"
              [class.ring-2]="editingRuleset?.id === ruleset.id"
              [class.ring-primary]="editingRuleset?.id === ruleset.id"
-             [class.bg-primary/10]="editingRuleset?.id === ruleset.id"
+             [ngClass]="{'bg-primary/10': editingRuleset?.id === ruleset.id}"
              (click)="onRulesetTileClick(ruleset)">
           <div class="flex flex-col h-full">
             <!-- Ruleset Header -->

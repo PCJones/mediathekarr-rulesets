@@ -167,7 +167,11 @@ export class RulesetComponent implements OnInit, OnDestroy {
         if (this.rulesets.length > 0 && !this.editingRuleset && !this.showForm) {
           this.editRuleset(this.rulesets[0]);
         } else if (this.rulesets.length === 0) {
-          this.showAddForm();
+          // If no rulesets exist, automatically show the add form with duration filter
+          this.showForm = true;
+          this.editingRuleset = null;
+          this.initializeForm();
+          this.initializeDurationFilter();
         }
         this.cdr.markForCheck();
       },
@@ -191,6 +195,11 @@ export class RulesetComponent implements OnInit, OnDestroy {
   }
 
   cancelEdit(): void {
+    // Don't allow canceling if no rulesets exist (user must create first one)
+    if (this.rulesets.length === 0) {
+      return;
+    }
+    
     this.editingRuleset = null;
     this.showForm = false;
     this.initializeForm();
@@ -386,7 +395,10 @@ export class RulesetComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown.escape', ['$event'])
   onEscapePress(event: KeyboardEvent): void {
     if (this.editingRuleset || this.showForm) {
-      this.cancelEdit();
+      // Don't cancel if no rulesets exist (user must create first one)
+      if (this.rulesets.length > 0) {
+        this.cancelEdit();
+      }
     } else {
       this.navigateToMediaOverview();
     }
