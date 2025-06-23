@@ -21,6 +21,7 @@
     </div>
   </div>
 
+  <!-- Existing Rulesets Section -->
   <div class="bg-base-100 rounded-3xl shadow-2xl border border-base-content/10">
     <div class="p-6 border-b border-base-content/10">
       <div class="flex items-center justify-between">
@@ -30,7 +31,7 @@
         </div>
         <button class="btn btn-primary rounded-2xl" 
                 (click)="showAddForm()"
-                *ngIf="!showForm && !editingRuleset">
+                *ngIf="!showForm && !editingRuleset && rulesets.length > 0">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
@@ -40,12 +41,12 @@
     </div>
     
     <div class="p-6">
-      <div *ngIf="rulesets.length === 0" class="text-center py-8 text-base-content/70">
+      <div *ngIf="rulesets.length === 0 && !showForm" class="text-center py-8 text-base-content/70">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         <p class="text-lg font-medium">Keine Rulesets vorhanden</p>
-        <p class="text-sm">Erstellen Sie Ihr erstes Ruleset für diese Serie</p>
+        <p class="text-sm">Das erste Ruleset wird automatisch erstellt</p>
       </div>
       
       <!-- Tile/Grid Layout for Rulesets -->
@@ -110,10 +111,10 @@
     </div>
   </div>
 
-  <!-- Form Section - Only show when editing or adding -->
+  <!-- Form Section - Show when editing/adding or no rulesets exist -->
   <div id="editSection" 
        class="lg:w-full bg-base-100 rounded-3xl shadow-2xl border border-base-content/10" 
-       *ngIf="editingRuleset || showForm">
+       *ngIf="editingRuleset || showForm || rulesets.length === 0">
     <div class="p-6 border-b border-base-content/10">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -124,7 +125,8 @@
         <button type="button" 
                 class="btn btn-ghost btn-sm rounded-full p-2" 
                 (click)="cancelEdit()"
-                title="Schließen (ESC)">
+                title="Schließen (ESC)"
+                *ngIf="rulesets.length > 0">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -260,11 +262,13 @@
       <div class="flex gap-3 pt-4">
         <button type="button" 
                 class="btn btn-ghost flex-1 rounded-2xl" 
-                (click)="cancelEdit()">
+                (click)="cancelEdit()"
+                *ngIf="rulesets.length > 0">
           Abbrechen
         </button>
         <button type="submit" 
                 class="btn btn-primary flex-1 rounded-2xl" 
+                [class.w-full]="rulesets.length === 0"
                 [disabled]="!rulesetForm.valid">
           {{ editingRuleset ? 'Update' : 'Speichern' }}
         </button>
