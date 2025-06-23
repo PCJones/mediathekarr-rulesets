@@ -10,12 +10,110 @@
     </div>
   </div>
 
-  <!-- Form Section -->
-  <div id="editSection" class="lg:w-full bg-base-100 rounded-3xl shadow-2xl border border-base-content/10">
+  <div class="bg-base-100 rounded-3xl shadow-2xl border border-base-content/10">
     <div class="p-6 border-b border-base-content/10">
-      <div class="flex items-center gap-4">
-        <div class="w-2 h-12 bg-primary rounded-full"></div>
-        <h2 class="text-2xl font-bold">{{ editingRuleset ? 'Bearbeiten' : 'Hinzufügen' }} Ruleset</h2>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-2 h-12 bg-secondary rounded-full"></div>
+          <h2 class="text-2xl font-bold">Vorhandene Rulesets</h2>
+        </div>
+        <button class="btn btn-primary rounded-2xl" 
+                (click)="showAddForm()"
+                *ngIf="!showForm && !editingRuleset">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Hinzufügen
+        </button>
+      </div>
+    </div>
+    
+    <div class="p-6">
+      <div *ngIf="rulesets.length === 0" class="text-center py-8 text-base-content/70">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="text-lg font-medium">Keine Rulesets vorhanden</p>
+        <p class="text-sm">Erstellen Sie Ihr erstes Ruleset für diese Serie</p>
+      </div>
+      
+      <!-- Tile/Grid Layout for Rulesets -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" *ngIf="rulesets.length > 0">
+        <div *ngFor="let ruleset of rulesets" 
+             class="bg-base-200/30 rounded-2xl border border-base-content/5 p-4 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+          <div class="flex flex-col h-full">
+            <!-- Ruleset Header -->
+            <div class="flex-1 mb-4">
+              <h3 class="text-lg font-semibold text-base-content line-clamp-2 mb-2">
+                {{ ruleset.topic || 'Untitled Ruleset' }}
+              </h3>
+              <div class="space-y-1 text-sm text-base-content/70">
+                <div class="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>Priority: {{ ruleset.priority }}</span>
+                </div>
+                <div class="flex items-center gap-2" *ngIf="ruleset.matchingStrategy">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <span class="line-clamp-1">{{ ruleset.matchingStrategy }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex gap-2 opacity-70 group-hover:opacity-100 transition-opacity duration-200">
+              <button class="btn btn-xs btn-primary rounded-xl flex-1" 
+                      (click)="editRuleset(ruleset); $event.stopPropagation()"
+                      title="Edit Ruleset">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              
+              <button class="btn btn-xs btn-secondary rounded-xl flex-1" 
+                      (click)="duplicateRuleset(ruleset); $event.stopPropagation()"
+                      title="Duplicate Ruleset">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+              
+              <button class="btn btn-xs btn-error rounded-xl flex-1" 
+                      (click)="deleteRuleset(ruleset); $event.stopPropagation()"
+                      title="Delete Ruleset">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form Section - Only show when editing or adding -->
+  <div id="editSection" 
+       class="lg:w-full bg-base-100 rounded-3xl shadow-2xl border border-base-content/10" 
+       *ngIf="editingRuleset || showForm">
+    <div class="p-6 border-b border-base-content/10">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-2 h-12 bg-primary rounded-full"></div>
+          <h2 class="text-2xl font-bold">{{ editingRuleset ? 'Bearbeiten' : 'Hinzufügen' }} Ruleset</h2>
+        </div>
+        <!-- Close Button -->
+        <button type="button" 
+                class="btn btn-ghost btn-sm rounded-full p-2" 
+                (click)="cancelEdit()"
+                title="Schließen (ESC)">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -26,8 +124,7 @@
           <label class="label font-medium">Thema</label>
           <input type="text" 
                  formControlName="topic" 
-                 class="input bg-base-200/50 border-base-content/10 rounded-2xl transition-all duration-300 focus:ring-2 focus:ring-primary/50"
-                 [placeholder]="mediaName"/>
+                 class="input bg-base-200/50 border-base-content/10 rounded-2xl transition-all duration-300 focus:ring-2 focus:ring-primary/50"/>
         </div>
         
         <div class="form-control">
@@ -148,7 +245,7 @@
       <div class="flex gap-3 pt-4">
         <button type="button" 
                 class="btn btn-ghost flex-1 rounded-2xl" 
-                (click)="resetForm()">
+                (click)="cancelEdit()">
           Abbrechen
         </button>
         <button type="submit" 
@@ -158,58 +255,5 @@
         </button>
       </div>
     </form>
-  </div>
-
-  <!-- Existing Rulesets List -->
-  <div class="bg-base-100 rounded-3xl shadow-2xl border border-base-content/10" *ngIf="rulesets.length > 0">
-    <div class="p-6 border-b border-base-content/10">
-      <div class="flex items-center gap-4">
-        <div class="w-2 h-12 bg-secondary rounded-full"></div>
-        <h2 class="text-2xl font-bold">Vorhandene Rulesets</h2>
-      </div>
-    </div>
-    
-    <div class="p-6">
-      <div class="space-y-4">
-        <div *ngFor="let ruleset of rulesets" 
-             class="bg-base-200/30 rounded-2xl border border-base-content/5 p-4 hover:shadow-lg transition-all duration-300">
-          <div class="flex justify-between items-start">
-            <div class="flex-1">
-              <h3 class="text-lg font-semibold text-base-content">{{ ruleset.topic || 'Untitled Ruleset' }}</h3>
-              <p class="text-sm text-base-content/70 mt-1">Priority: {{ ruleset.priority }}</p>
-              <p class="text-sm text-base-content/70" *ngIf="ruleset.matchingStrategy">
-                Strategy: {{ ruleset.matchingStrategy }}
-              </p>
-            </div>
-            
-            <div class="flex gap-2 ml-4">
-              <button class="btn btn-sm btn-primary rounded-xl" 
-                      (click)="editRuleset(ruleset)"
-                      title="Edit Ruleset">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-              
-              <button class="btn btn-sm btn-secondary rounded-xl" 
-                      (click)="duplicateRuleset(ruleset)"
-                      title="Duplicate Ruleset">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-              
-              <button class="btn btn-sm btn-error rounded-xl" 
-                      (click)="deleteRuleset(ruleset)"
-                      title="Delete Ruleset">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </div>

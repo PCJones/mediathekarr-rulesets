@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef, HostListener, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { RulesetService, Ruleset } from '../../services/ruleset.service';
@@ -30,13 +30,14 @@ interface RegexRule {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ruleset.component.html',
 })
-export class RulesetComponent implements OnInit {
+export class RulesetComponent implements OnInit, OnDestroy {
   mediaId!: string;
   mediaName = '';
   rulesets: Ruleset[] = [];
   rulesetForm!: FormGroup;
   editingRuleset: Ruleset | null = null;
   tvdbId?: number; 
+  showForm = false;
 
   readonly predefinedRegexPatterns = [
     { name: 'Default', value: '(.*)' },
@@ -74,7 +75,7 @@ export class RulesetComponent implements OnInit {
 
   private initializeForm(): void {
     this.rulesetForm = this.fb.group({
-      topic: ['', Validators.required],
+      topic: [this.mediaName || '', Validators.required],
       priority: [0, Validators.required],
       filters: this.fb.array([]),
       titleRegexRules: this.fb.array([]),
@@ -152,6 +153,9 @@ export class RulesetComponent implements OnInit {
         if (media && media.tvdbId) {  
           this.mediaName = media.name;
           this.tvdbId = media.tvdbId; 
+          if (this.rulesetForm && !this.rulesetForm.get('topic')?.value) {
+            this.rulesetForm.patchValue({ topic: this.mediaName });
+          }
           this.cdr.markForCheck();
         }
       },
@@ -179,7 +183,25 @@ export class RulesetComponent implements OnInit {
 
   resetForm(): void {
     this.editingRuleset = null;
+    this.showForm = false;
     this.initializeForm();
+    this.cdr.markForCheck();
+  }
+
+  cancelEdit(): void {
+    this.editingRuleset = null;
+    this.showForm = false;
+    this.initializeForm();
+    this.cdr.markForCheck();
+  }
+
+  showAddForm(): void {
+    this.showForm = true;
+    this.editingRuleset = null;
+    this.initializeForm();
+    if (!this.editingRuleset) {
+      this.initializeDurationFilter();
+    }
     this.cdr.markForCheck();
   }
 
@@ -198,7 +220,7 @@ export class RulesetComponent implements OnInit {
       operation.subscribe({
         next: () => {
           this.loadRulesets();
-          this.resetForm();
+          this.cancelEdit();
         },
         error: (error) => console.error('Error saving ruleset:', error),
       });
@@ -207,12 +229,13 @@ export class RulesetComponent implements OnInit {
 
   editRuleset(ruleset: Ruleset): void {
     this.editingRuleset = ruleset;
+    this.showForm = true;
     
     this.filters.clear();
     this.titleRegexRules.clear();
 
     this.rulesetForm.patchValue({
-      topic: ruleset.topic || '',
+      topic: ruleset.topic || this.mediaName,
       priority: ruleset.priority ?? 0,
       episodeRegex: ruleset.episodeRegex || '',
       seasonRegex: ruleset.seasonRegex || '',
@@ -355,6 +378,13 @@ export class RulesetComponent implements OnInit {
   ngOnDestroy(): void {
     if (this.formSubscription) {
       this.formSubscription.unsubscribe();
+    }
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapePress(event: KeyboardEvent): void {
+    if (this.editingRuleset || this.showForm) {
+      this.cancelEdit();
     }
   }
 }
