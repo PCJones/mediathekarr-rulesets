@@ -48,12 +48,12 @@ export class RulesetComponent implements OnInit, OnDestroy {
 
   readonly predefinedSeasonEpisodePatterns = [
     {
-      name: '(S01E01)',
+      name: '(S01/E01)',
       episodePattern: '(?<=\\bS\\d{2,4}\\s*/E)(\\d{2,4})(?=\\))',
       seasonPattern: '(?<=S)(\\d{2,4})(?=\\s*/E\\d{2,4})',
     },
     {
-      name: 'Prinzessin (Staffel 4, Folge 4)',
+      name: 'Episodentitel (Staffel 4, Folge 4)',
       episodePattern: '(?<=Folge\\s)(\\d{1,4})(?=\\))',
       seasonPattern: '(?<=Staffel\\s)(\\d{1,4})(?=, Folge\\s\\d{1,4})',
     },
