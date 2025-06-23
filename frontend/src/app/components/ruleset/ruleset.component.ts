@@ -312,6 +312,46 @@ export class RulesetComponent implements OnInit {
     }
 }
 
+  handleSeasonEpisodePatternChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const pattern = this.predefinedSeasonEpisodePatterns[Number(select.value)];
+    if (pattern) {
+      this.rulesetForm.patchValue({
+        episodeRegex: pattern.episodePattern,
+        seasonRegex: pattern.seasonPattern
+      });
+    }
+  }
+
+  addFilter(): void {
+    this.filters.push(
+      this.fb.group({
+        attribute: ['channel', Validators.required],
+        type: ['ExactMatch', Validators.required],
+        value: ['', Validators.required],
+      })
+    );
+  }
+
+  removeFilter(index: number): void {
+    this.filters.removeAt(index);
+  }
+
+  addTitleRegexRule(): void {
+    this.titleRegexRules.push(
+      this.fb.group({
+        type: ['regex', Validators.required],
+        field: ['title'],
+        pattern: [''],
+        value: [''],
+      })
+    );
+  }
+
+  removeTitleRegexRule(index: number): void {
+    this.titleRegexRules.removeAt(index);
+  }
+
   ngOnDestroy(): void {
     if (this.formSubscription) {
       this.formSubscription.unsubscribe();
