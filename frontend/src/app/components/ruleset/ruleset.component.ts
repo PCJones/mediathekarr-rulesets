@@ -141,9 +141,6 @@ export class RulesetComponent implements OnInit, OnDestroy {
     this.mediaId = this.route.snapshot.params['mediaId'];
     this.loadRulesets();
     this.loadMediaName();
-    if (!this.editingRuleset) {
-      this.initializeDurationFilter();
-    }
   }
   
   private loadMediaName(): void {
@@ -167,6 +164,11 @@ export class RulesetComponent implements OnInit, OnDestroy {
     this.rulesetService.getByMediaId(this.mediaId).subscribe({
       next: (rulesets) => {
         this.rulesets = rulesets;
+        if (this.rulesets.length > 0 && !this.editingRuleset && !this.showForm) {
+          this.editRuleset(this.rulesets[0]);
+        } else if (this.rulesets.length === 0) {
+          this.showAddForm();
+        }
         this.cdr.markForCheck();
       },
       error: (error) => console.error('Error loading rulesets:', error),
@@ -385,6 +387,16 @@ export class RulesetComponent implements OnInit, OnDestroy {
   onEscapePress(event: KeyboardEvent): void {
     if (this.editingRuleset || this.showForm) {
       this.cancelEdit();
+    } else {
+      this.navigateToMediaOverview();
     }
+  }
+
+  navigateToMediaOverview(): void {
+    this.router.navigate(['/media']);
+  }
+
+  onRulesetTileClick(ruleset: Ruleset): void {
+    this.editRuleset(ruleset);
   }
 }

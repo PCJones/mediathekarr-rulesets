@@ -1,12 +1,23 @@
 <div class="container mx-auto p-6 space-y-8">
   <!-- Header Section -->
   <div class="bg-base-100 rounded-3xl shadow-2xl border border-base-content/10 p-6">
-    <div class="flex items-center gap-4">
-      <div class="w-3 h-16 bg-accent rounded-full"></div>
-      <div>
-        <h1 class="text-3xl font-bold text-base-content">{{ mediaName }}</h1>
-        <p class="text-base-content/70" *ngIf="tvdbId">TVDB ID: {{ tvdbId }}</p>
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="w-3 h-16 bg-accent rounded-full"></div>
+        <div>
+          <h1 class="text-3xl font-bold text-base-content">{{ mediaName }}</h1>
+          <p class="text-base-content/70" *ngIf="tvdbId">TVDB ID: {{ tvdbId }}</p>
+        </div>
       </div>
+      <!-- Close Button to go back to media overview -->
+      <button type="button" 
+              class="btn btn-ghost btn-sm rounded-full p-3" 
+              (click)="navigateToMediaOverview()"
+              title="Zurück zur Medienübersicht (ESC)">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -40,7 +51,11 @@
       <!-- Tile/Grid Layout for Rulesets -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" *ngIf="rulesets.length > 0">
         <div *ngFor="let ruleset of rulesets" 
-             class="bg-base-200/30 rounded-2xl border border-base-content/5 p-4 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group">
+             class="bg-base-200/30 rounded-2xl border border-base-content/5 p-4 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer group"
+             [class.ring-2]="editingRuleset?.id === ruleset.id"
+             [class.ring-primary]="editingRuleset?.id === ruleset.id"
+             [class.bg-primary/10]="editingRuleset?.id === ruleset.id"
+             (click)="onRulesetTileClick(ruleset)">
           <div class="flex flex-col h-full">
             <!-- Ruleset Header -->
             <div class="flex-1 mb-4">
