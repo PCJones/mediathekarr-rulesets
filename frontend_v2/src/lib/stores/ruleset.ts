@@ -158,7 +158,6 @@ export const wizardStore = createWizardStore();
 // Derived store for wizard steps validation
 // Note: "show" step removed - media is now selected before entering wizard
 export const wizardSteps = derived(rulesetStore, ($ruleset): WizardStep[] => {
-	console.log('wizardSteps derived, $ruleset:', JSON.stringify($ruleset));
 	const strategyInfo = MATCHING_STRATEGIES.find(s => s.value === $ruleset.matchingStrategy);
 
 	return [
