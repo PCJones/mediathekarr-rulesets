@@ -1,0 +1,16 @@
+RewriteEngine On
+
+<FilesMatch "^(config\.php|\..*|.*\.md)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+RewriteRule ^media/(\d+)/rulesets(/.*)?$ api/rulesets.php/media/$1 [L,QSA]
+RewriteRule ^rulesets(/.*)?$ api/rulesets.php$1 [L,QSA]
+RewriteRule ^patterns(/.*)?$ api/patterns.php$1 [L,QSA]
+RewriteRule ^changelog(/.*)?$ api/changelog.php$1 [L,QSA]
+RewriteRule ^auth(/.*)?$ api/login.php$1 [L,QSA]
+RewriteRule ^media(/.*)?$ api/media.php$1 [L,QSA]

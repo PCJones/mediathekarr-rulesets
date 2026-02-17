@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base font size for 2K+ monitors */
+html {
+	font-size: 18px; /* Default is 16px, 18px = 12.5% larger */
+}
+
+/* Custom styles */
+:root {
+	--transition-duration: 200ms;
+}
+
+/* Smooth transitions for theme switching */
+* {
+	transition: background-color var(--transition-duration) ease,
+		border-color var(--transition-duration) ease,
+		color var(--transition-duration) ease;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: oklch(var(--b2));
+}
+
+::-webkit-scrollbar-thumb {
+	background: oklch(var(--bc) / 0.3);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: oklch(var(--bc) / 0.5);
+}
+
+/* Wizard step transitions */
+.wizard-step-enter {
+	opacity: 0;
+	transform: translateX(20px);
+}
+
+.wizard-step-enter-active {
+	opacity: 1;
+	transform: translateX(0);
+	transition: all 300ms ease-out;
+}
+
+/* Result item animations */
+.result-item {
+	transition: all 200ms ease;
+}
+
+.result-item:hover {
+	transform: translateY(-2px);
+}
+
+/* Debug panel expand animation */
+.debug-expand {
+	transition: max-height 300ms ease-out, opacity 200ms ease;
+	overflow: hidden;
+}
+
+/* Status indicators */
+.status-matched {
+	@apply border-l-4 border-success bg-success/5;
+}
+
+.status-failed {
+	@apply border-l-4 border-error bg-error/5;
+}
+
+.status-skipped {
+	@apply border-l-4 border-warning bg-warning/5;
+}

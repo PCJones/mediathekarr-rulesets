@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  php-api:
+    image: php:8.2-apache
+    container_name: mediathekarr-api
+    ports:
+      - "8080:80"
+    volumes:
+      - ./api:/var/www/html
+      - ./docker/apache.conf:/etc/apache2/sites-available/000-default.conf
+    environment:
+      - APACHE_RUN_USER=www-data
+      - APACHE_RUN_GROUP=www-data
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y libsqlite3-dev &&
+        docker-php-ext-install pdo pdo_sqlite &&
+        a2enmod rewrite headers &&
+        apache2-foreground
+      "
+    restart: unless-stopped
