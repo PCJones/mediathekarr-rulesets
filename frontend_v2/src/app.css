@@ -1,6 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "daisyui" {
+	themes: light --default, dark;
+}
 
 /* Base font size for 2K+ monitors */
 html {
