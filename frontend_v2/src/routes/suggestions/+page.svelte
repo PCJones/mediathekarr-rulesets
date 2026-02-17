@@ -4,6 +4,7 @@
 	import type { Suggestion, SuggestionStatus } from '$types/suggestion';
 	import SuggestionCard from '$components/suggestions/SuggestionCard.svelte';
 	import Button from '$components/ui/Button.svelte';
+	import Alert from '$components/ui/Alert.svelte';
 
 	type FilterTab = 'all' | SuggestionStatus;
 	type SortOption = 'newest' | 'votes';
@@ -48,6 +49,12 @@
 </svelte:head>
 
 <div class="space-y-6">
+	<Alert variant="warning">
+		<span class="text-base font-semibold">
+			Achtung: Diese Seite zeigt derzeit nur Beispieldaten an. Die Vorschlagsfunktion ist noch nicht aktiv.
+		</span>
+	</Alert>
+
 	<!-- Header -->
 	<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 		<div>

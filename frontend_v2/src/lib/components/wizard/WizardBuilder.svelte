@@ -172,8 +172,8 @@
 
 			<Alert variant="info">
 				<span class="text-sm">
-					<strong>Tipp:</strong> Manchmal ist es nicht möglich, alle Varianten mit einem Ruleset abzudecken.
-					Mehrere Rulesets für dieselbe Serie sind möglich.
+					<strong>Tipp:</strong> Manchmal ist es nicht möglich, alle Titel-Varianten mit einem einzigen Ruleset abzudecken.
+					In solchen Fällen können mehrere Rulesets für dieselbe Serie erstellt werden.
 				</span>
 			</Alert>
 		</div>
