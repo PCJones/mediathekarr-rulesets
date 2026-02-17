@@ -179,8 +179,8 @@
 						</span>
 						<span class="flex-1">{getFilterDisplay(filter)}</span>
 						{#if isAutoAdded(filter) && storedDurationInfo}
-							<span class="badge badge-info badge-sm" title="Automatisch berechnet: {Math.round(storedDurationInfo.percentageUsed * 100)}% von O {storedDurationInfo.averageRuntime} min">
-								{Math.round(storedDurationInfo.percentageUsed * 100)}% von O {storedDurationInfo.averageRuntime} min
+							<span class="badge badge-info badge-sm" title="Automatisch berechnet: {Math.round(storedDurationInfo.percentageUsed * 100)}% von ⌀ {storedDurationInfo.averageRuntime} min">
+								{Math.round(storedDurationInfo.percentageUsed * 100)}% von ⌀ {storedDurationInfo.averageRuntime} min
 							</span>
 						{/if}
 						<button
@@ -311,7 +311,7 @@
 				{#if autoAddedDurationValue !== null && storedDurationInfo}
 					Ein Mindestdauer-Filter wurde automatisch hinzugefügt:
 					{Math.round(storedDurationInfo.percentageUsed * 100)}% der durchschnittlichen Episodenlänge
-					(O {storedDurationInfo.averageRuntime} min aus {storedDurationInfo.analyzedEpisodes} Episoden).
+					(⌀ {storedDurationInfo.averageRuntime} min aus {storedDurationInfo.analyzedEpisodes} Episoden).
 					Du kannst diesen anpassen oder entfernen.
 				{/if}
 			</p>

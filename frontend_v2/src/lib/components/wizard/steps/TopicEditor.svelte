@@ -164,7 +164,7 @@
 <div class="topic-editor">
 	<h2 class="text-xl font-bold mb-1">Topics definieren</h2>
 	<p class="text-text-secondary text-sm mb-4">
-		Gib die Mediathek-Topics ein, die zu dieser Show gehören. Drücke <kbd class="font-mono text-xs bg-surface-raised px-1.5 py-0.5 rounded border border-border">Enter</kbd> um einen Topic hinzuzufügen.
+		Gib die Mediathek-Topics ein, die zu dieser Show gehören. Drücke <kbd class="font-mono text-xs bg-surface-raised px-1.5 py-0.5 rounded border border-border">Enter</kbd> um ein Topic hinzuzufügen.
 	</p>
 
 	<!-- Tag input -->
