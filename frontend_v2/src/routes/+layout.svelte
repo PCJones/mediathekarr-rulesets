@@ -2,81 +2,118 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { isLoggedIn, logout } from '$api/auth';
+	import { page } from '$app/stores';
+	import { authStore, isAdmin, isAuthenticated } from '$stores/auth';
+	import { themeStore } from '$stores/theme';
+	import ThemePicker from '$components/ui/ThemePicker.svelte';
 
 	let { children } = $props();
 
-	// Theme management
-	let theme = $state<'light' | 'dark'>('light');
-	let loggedIn = $state(false);
+	let currentPath = $derived($page.url.pathname);
 
-	onMount(() => {
-		// Load theme from localStorage or system preference
-		const savedTheme = localStorage.getItem('theme');
-		if (savedTheme === 'dark' || savedTheme === 'light') {
-			theme = savedTheme;
-		} else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-			theme = 'dark';
-		}
-		document.documentElement.setAttribute('data-theme', theme);
-
-		// Check login status
-		loggedIn = isLoggedIn();
-	});
-
-	function toggleTheme() {
-		theme = theme === 'light' ? 'dark' : 'light';
-		document.documentElement.setAttribute('data-theme', theme);
-		localStorage.setItem('theme', theme);
+	interface NavLink {
+		href: string;
+		label: string;
+		requiresAuth?: boolean;
 	}
 
+	const navLinks: NavLink[] = [
+		{ href: '/media', label: 'Media' },
+		{ href: '/sandbox', label: 'Sandbox' },
+		{ href: '/suggestions', label: 'Vorschläge' }
+	];
+
+	onMount(() => {
+		themeStore.init();
+		authStore.init();
+
+		const unsubSystemTheme = themeStore.listenForSystemChanges();
+		return () => {
+			if (typeof unsubSystemTheme === 'function') unsubSystemTheme();
+		};
+	});
+
 	function handleLogout() {
-		logout();
-		loggedIn = false;
-		goto('/login');
+		authStore.logout();
+		goto('/');
+	}
+
+	function isActive(href: string): boolean {
+		if (href === '/') return currentPath === '/';
+		return currentPath.startsWith(href);
 	}
 </script>
 
-<div class="min-h-screen bg-base-100">
-	<!-- Navbar -->
-	<nav class="navbar bg-base-200 shadow-sm">
-		<div class="flex-1">
-			<a href="/" class="btn btn-ghost text-xl font-bold">MediathekArr Rulesets</a>
-		</div>
-		<div class="flex-none gap-2">
-			<a href="/media" class="btn btn-ghost btn-sm">Media</a>
-			<a href="/sandbox" class="btn btn-ghost btn-sm">Sandbox</a>
+<div class="min-h-screen bg-bg text-text">
+	<!-- Header -->
+	<header class="border-b border-border bg-surface">
+		<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+			<!-- Left: Logo + Nav -->
+			<div class="flex items-center gap-6">
+				<a href="/" class="text-lg font-bold text-text hover:text-accent transition-colors">
+					MediathekArr
+				</a>
 
-			{#if loggedIn}
-				<button class="btn btn-ghost btn-sm" onclick={handleLogout}>Logout</button>
-			{:else}
-				<a href="/login" class="btn btn-ghost btn-sm">Login</a>
-			{/if}
+				<nav class="hidden sm:flex items-center gap-1">
+					{#each navLinks as link}
+						<a
+							href={link.href}
+							class="relative px-3 py-1.5 text-sm font-medium transition-colors rounded-md"
+							class:text-accent={isActive(link.href)}
+							class:text-text-secondary={!isActive(link.href)}
+							class:hover:text-text={!isActive(link.href)}
+							class:hover:bg-surface-raised={!isActive(link.href)}
+						>
+							{link.label}
+							{#if isActive(link.href)}
+								<span class="absolute bottom-0 left-3 right-3 h-0.5 bg-accent rounded-full"></span>
+							{/if}
+						</a>
+					{/each}
+				</nav>
+			</div>
 
-			<!-- Theme toggle -->
-			<button class="btn btn-ghost btn-circle" onclick={toggleTheme} aria-label="Theme wechseln">
-				{#if theme === 'light'}
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-					</svg>
+			<!-- Right: Auth + Theme -->
+			<div class="flex items-center gap-3">
+				{#if $isAuthenticated}
+					<span class="hidden sm:inline text-sm text-text-secondary">
+						{$authStore.user?.displayName}
+					</span>
+					{#if $isAdmin}
+						<span class="badge badge-accent badge-sm">Admin</span>
+					{/if}
+					<button
+						class="btn btn-ghost btn-sm"
+						onclick={handleLogout}
+					>
+						Logout
+					</button>
 				{:else}
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-					</svg>
+					<a href="/login" class="btn btn-ghost btn-sm">Login</a>
 				{/if}
-			</button>
+
+				<ThemePicker />
+			</div>
 		</div>
-	</nav>
+
+		<!-- Mobile nav -->
+		<nav class="sm:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto">
+			{#each navLinks as link}
+				<a
+					href={link.href}
+					class="px-3 py-1 text-sm font-medium rounded-md whitespace-nowrap"
+					class:text-accent={isActive(link.href)}
+					class:bg-surface-raised={isActive(link.href)}
+					class:text-text-secondary={!isActive(link.href)}
+				>
+					{link.label}
+				</a>
+			{/each}
+		</nav>
+	</header>
 
 	<!-- Main content -->
-	<main class="container mx-auto p-4 md:p-6">
+	<main class="mx-auto max-w-7xl px-4 py-6">
 		{@render children()}
 	</main>
-
-	<!-- Footer -->
-	<footer class="footer footer-center p-4 bg-base-200 text-base-content mt-auto">
-		<div>
-			<p>MediathekArr Rulesets - Phase 1 MVP</p>
-		</div>
-	</footer>
 </div>

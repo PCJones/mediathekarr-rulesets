@@ -5,6 +5,8 @@
 
 import type {
 	Ruleset,
+	Filter,
+	RegexRule,
 	RulesetListResponse,
 	PredefinedTitlePattern,
 	PredefinedSeasonEpisodePattern
@@ -63,8 +65,8 @@ interface RawRuleset {
 	mediaId: number | null;
 	topic: string;
 	priority: number;
-	filters: object[];
-	titleRegexRules: object[];
+	filters: Filter[];
+	titleRegexRules: RegexRule[];
 	episodeRegex: string | null;
 	seasonRegex: string | null;
 	matchingStrategy: string;

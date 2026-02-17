@@ -1,5 +1,7 @@
 RewriteEngine On
 
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 <FilesMatch "^(config\.php|\..*|.*\.md)$">
     Order allow,deny
     Deny from all

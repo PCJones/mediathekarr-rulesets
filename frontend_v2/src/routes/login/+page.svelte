@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { login, isLoggedIn } from '$api/auth';
+	import { authStore } from '$stores/auth';
 	import { onMount } from 'svelte';
+	import Card from '$components/ui/Card.svelte';
+	import Button from '$components/ui/Button.svelte';
+	import Input from '$components/ui/Input.svelte';
+	import Alert from '$components/ui/Alert.svelte';
+	import Spinner from '$components/ui/Spinner.svelte';
 
 	let email = $state('');
 	let password = $state('');
 	let error = $state<string | null>(null);
 	let isLoading = $state(false);
 
-	// Redirect if already logged in
 	onMount(() => {
 		if (isLoggedIn()) {
 			goto('/media');
@@ -24,6 +29,7 @@
 
 		try {
 			await login(email, password);
+			authStore.init();
 			goto('/media');
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Login fehlgeschlagen';
@@ -37,71 +43,43 @@
 	<title>Login - MediathekArr</title>
 </svelte:head>
 
-<div class="min-h-[70vh] flex items-center justify-center">
-	<div class="card w-full max-w-md bg-base-200 shadow-xl">
-		<div class="card-body">
-			<h1 class="card-title text-2xl justify-center mb-4">Login</h1>
+<div class="min-h-[60vh] flex items-center justify-center">
+	<div class="w-full max-w-md">
+		<Card padding="lg">
+			<h1 class="text-2xl font-bold text-center mb-6">Login</h1>
 
 			{#if error}
-				<div class="alert alert-error mb-4">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{error}</span>
+				<div class="mb-4">
+					<Alert variant="error">{error}</Alert>
 				</div>
 			{/if}
 
-			<form onsubmit={handleSubmit}>
-				<div class="form-control mb-4">
-					<label class="label" for="email">
-						<span class="label-text">E-Mail</span>
-					</label>
-					<input
-						id="email"
-						type="email"
-						class="input input-bordered"
-						placeholder="E-Mail eingeben"
-						bind:value={email}
-						disabled={isLoading}
-					/>
-				</div>
+			<form onsubmit={handleSubmit} class="space-y-4">
+				<Input
+					type="email"
+					label="E-Mail"
+					placeholder="E-Mail eingeben"
+					bind:value={email}
+					disabled={isLoading}
+				/>
 
-				<div class="form-control mb-6">
-					<label class="label" for="password">
-						<span class="label-text">Passwort</span>
-					</label>
-					<input
-						id="password"
-						type="password"
-						class="input input-bordered"
-						placeholder="Passwort eingeben"
-						bind:value={password}
-						disabled={isLoading}
-					/>
-				</div>
+				<Input
+					type="password"
+					label="Passwort"
+					placeholder="Passwort eingeben"
+					bind:value={password}
+					disabled={isLoading}
+				/>
 
-				<button
+				<Button
 					type="submit"
-					class="btn btn-primary w-full"
-					disabled={!email.trim() || !password.trim() || isLoading}
+					variant="primary"
+					disabled={!email.trim() || !password.trim()}
+					loading={isLoading}
 				>
-					{#if isLoading}
-						<span class="loading loading-spinner loading-sm"></span>
-					{/if}
 					Anmelden
-				</button>
+				</Button>
 			</form>
-		</div>
+		</Card>
 	</div>
 </div>

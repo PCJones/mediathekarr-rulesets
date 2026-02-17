@@ -3,3 +3,5 @@ export * from './ruleset';
 export * from './mediathek';
 export * from './tvdb';
 export * from './media';
+export * from './auth';
+export * from './suggestion';

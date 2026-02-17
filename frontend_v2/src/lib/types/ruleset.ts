@@ -92,6 +92,8 @@ export const MATCHING_STRATEGIES: MatchingStrategyInfo[] = [
 // Complete ruleset structure
 export interface Ruleset {
 	id?: number;
+	/** Media ID this ruleset belongs to */
+	mediaId?: number;
 	/** Pipe-separated topic names (e.g., "Tatort|Polizeiruf 110") */
 	topic: string;
 	/** TVDB show ID */
@@ -108,6 +110,8 @@ export interface Ruleset {
 	seasonRegex?: string;
 	/** Regex for extracting episode number (or static like "E05") */
 	episodeRegex?: string;
+	/** Associated media info (from API join) */
+	media?: { name: string; tvdbId: number | null };
 	/** Metadata */
 	createdAt?: string;
 	updatedAt?: string;
