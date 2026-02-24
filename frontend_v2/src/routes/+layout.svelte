@@ -11,6 +11,7 @@
 
 	let currentPath = $derived($page.url.pathname);
 
+
 	interface NavLink {
 		href: string;
 		label: string;
@@ -50,7 +51,12 @@
 		<div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
 			<!-- Left: Logo + Nav -->
 			<div class="flex items-center gap-6">
-				<a href="/" class="text-lg font-bold text-text hover:text-accent transition-colors">
+				<a href="/" class="flex items-center gap-2 text-lg font-bold text-text hover:text-accent transition-colors">
+					<img
+						src="/logo-blue.png"
+						alt=""
+						class="h-7 w-auto rounded"
+					/>
 					MediathekArr
 				</a>
 

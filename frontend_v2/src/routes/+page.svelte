@@ -31,6 +31,11 @@
 <div class="space-y-10">
 	<!-- Hero -->
 	<section class="py-8 text-center">
+		<img
+			src="/logo-ard.png"
+			alt=""
+			class="h-20 md:h-24 w-auto mx-auto mb-5 logo-adaptive opacity-80"
+		/>
 		<h1 class="text-3xl md:text-4xl font-bold">MediathekArr Rulesets</h1>
 		<p class="mt-3 text-lg text-text-secondary max-w-2xl mx-auto">
 			Erstelle Rulesets, um Mediathek-Inhalte automatisch mit TVDB-Episoden zu verknüpfen.
