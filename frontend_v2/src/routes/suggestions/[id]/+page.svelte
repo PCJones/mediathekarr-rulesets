@@ -1,34 +1,25 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { getSuggestion, updateSuggestionStatus, getVoteScore } from '$api/suggestions';
+	import { getSuggestion, updateSuggestionStatus } from '$api/suggestions';
 	import { authStore, isAdmin, isUser } from '$stores/auth';
-	import type { Suggestion } from '$types/suggestion';
 	import VoteWidget from '$components/suggestions/VoteWidget.svelte';
 	import CommentSection from '$components/suggestions/CommentSection.svelte';
 	import Badge from '$components/ui/Badge.svelte';
 	import Button from '$components/ui/Button.svelte';
 	import Alert from '$components/ui/Alert.svelte';
 
-	let suggestionId = $derived(Number($page.params.id));
-	let suggestion = $state<Suggestion | null>(null);
-	let error = $state<string | null>(null);
+	let refreshCounter = $state(0);
 	let resolutionComment = $state('');
 	let showResolveForm = $state<'accepted' | 'rejected' | null>(null);
 
-	$effect(() => {
-		const id = suggestionId;
-		loadSuggestion(id);
+	let suggestion = $derived.by(() => {
+		refreshCounter;
+		return getSuggestion(Number($page.params.id));
 	});
-
-	function loadSuggestion(id: number) {
-		suggestion = getSuggestion(id);
-		if (!suggestion) {
-			error = 'Vorschlag nicht gefunden';
-		}
-	}
+	let error = $derived(!suggestion ? 'Vorschlag nicht gefunden' : null);
 
 	function refresh() {
-		loadSuggestion(suggestionId);
+		refreshCounter++;
 	}
 
 	let statusVariant = $derived(
@@ -41,11 +32,7 @@
 		suggestion?.status === 'rejected' ? 'Abgelehnt' : 'Offen'
 	);
 
-	let currentUserId = $derived.by(() => {
-		let user: string | null = null;
-		authStore.subscribe(s => { user = s.user?.email || null; })();
-		return user;
-	});
+	let currentUserId = $derived($authStore.user?.email ?? null);
 
 	function formatDate(dateStr: string): string {
 		return new Date(dateStr).toLocaleDateString('de-DE', {
