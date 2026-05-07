@@ -248,7 +248,7 @@
 								<br /><span class="text-xs text-text-tertiary">-> extrahiert: "Mord am See"</span>
 							</td>
 							<td>
-								<span class="text-xs">name enthält "<strong>Mord am See</strong>"</span>
+								<span class="text-xs">"Tatort S2018E03 - Hans & Wurst - <strong>Mord am See</strong>"</span>
 							</td>
 						</tr>
 						<tr>
@@ -258,7 +258,7 @@
 								<br /><span class="text-xs text-text-tertiary">-> extrahiert: "Der Wetterfrosch"</span>
 							</td>
 							<td>
-								<span class="text-xs">name: "<strong>Der Wetterfrosch</strong>"</span>
+								<span class="text-xs">"<strong>Der Wetterfrosch</strong>"</span>
 							</td>
 						</tr>
 						<tr>

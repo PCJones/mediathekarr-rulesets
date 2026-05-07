@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { setContext } from 'svelte';
+	import { setContext, onDestroy } from 'svelte';
+	import { untrack } from 'svelte';
 	import { rulesetStore, wizardStore, wizardSteps, isRulesetValid } from '$stores/ruleset';
 	import { previewStore } from '$stores/preview';
 	import { coverageStore } from '$stores/coverage';
@@ -37,28 +38,53 @@
 		get tvdbShowData() { return tvdbShowData; }
 	});
 
-	// Initialize store
+	// Initialize stores (run once, not on every reactive change)
+	let initialized = false;
 	$effect(() => {
-		previewStore.clear();
+		if (initialized) return;
+		initialized = true;
 
-		if (existingRuleset) {
-			rulesetStore.loadRuleset(existingRuleset);
-			wizardStore.startEditing(existingRuleset.id!);
-		} else {
-			rulesetStore.reset();
-			rulesetStore.initWithMedia(media);
-			wizardStore.startCreating();
-		}
+		untrack(() => {
+			previewStore.clear();
 
-		// Load other rulesets for coverage evaluation
-		loadOtherRulesets();
+			if (existingRuleset) {
+				rulesetStore.loadRuleset(existingRuleset);
+				wizardStore.startEditing(existingRuleset.id!);
+			} else {
+				rulesetStore.reset();
+				rulesetStore.initWithMedia(media);
+				wizardStore.startCreating();
+			}
+
+			// Load all rulesets for coverage evaluation (including current)
+			loadAllRulesets();
+
+			// Set TVDB episodes for full-pipeline matching
+			coverageStore.setTvdbEpisodes(tvdbShowData?.episodes || []);
+
+			// Set current ruleset info so simulator knows which one is being edited
+			coverageStore.setCurrentRuleset(existingRuleset?.id);
+		});
 	});
 
-	async function loadOtherRulesets() {
+	// Reactively sync current ruleset data into the coverage simulator
+	// This keeps the "aktuell" entry updated as the user edits topic, filters, strategy, etc.
+	$effect(() => {
+		const currentData = $rulesetStore;
+		untrack(() => {
+			coverageStore.setCurrentRulesetEntry(currentData, existingRuleset?.id);
+		});
+	});
+
+	// Cleanup coverage store on unmount
+	onDestroy(() => {
+		coverageStore.clear();
+	});
+
+	async function loadAllRulesets() {
 		try {
 			const allRulesets = await getRulesetsForMedia(media.id);
-			const otherRulesets = allRulesets.filter(r => r.id !== existingRuleset?.id);
-			coverageStore.setOtherRulesets(otherRulesets);
+			coverageStore.setAllRulesets(allRulesets);
 		} catch {
 			// Coverage is optional
 		}
