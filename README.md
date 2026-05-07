@@ -2,7 +2,7 @@
 
 Web app to define rulesets for shows/movies, used in [MediathekArr](https://github.com/PCJones/mediathekarr)
 
-> **⚠️ Frontend AI Disclosure:** The frontend (`frontend_v2`) was heavily LLM-assisted (aka vibe coded) — I suck big time at frontend development. The backend and the main [MediathekArr](https://github.com/PCJones/mediathekarr) project are **not** affected by this. If you're a frontend developer and want to do this properly, I'll gladly accept a PR!
+> **⚠️ Frontend AI Disclosure:** The frontend (`frontend_v2`) was heavily LLM-assisted (aka vibe coded) - I suck big time at frontend development. The backend and the main [MediathekArr](https://github.com/PCJones/mediathekarr) project are **not** affected by this. If you're a frontend developer and want to do this properly, I'll gladly accept a PR!
 
 Important for setup:
 
