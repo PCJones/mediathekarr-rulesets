@@ -85,8 +85,8 @@
 		try {
 			const allRulesets = await getRulesetsForMedia(media.id);
 			coverageStore.setAllRulesets(allRulesets);
-		} catch {
-			// Coverage is optional
+		} catch (e) {
+			console.error('[WizardBuilder] Failed to load rulesets for coverage:', e);
 		}
 	}
 

@@ -135,16 +135,42 @@ function createCoverageStore() {
 	return {
 		subscribe,
 
-		/** Set all rulesets for coverage comparison */
+		/**
+		 * Merge loaded rulesets into the simulation.
+		 *
+		 * Merges (rather than replaces) because `setCurrentRulesetEntry` may have
+		 * already populated the simulation with the entry currently being edited
+		 * — sentinel for a new ruleset, or the real id for an existing one. A
+		 * destructive rebuild here races with that path and can leave the
+		 * simulation empty until the next keystroke if the orderings interleave.
+		 */
 		setAllRulesets: (rulesets: Ruleset[]) => {
 			update(state => {
-				const sim = initSimulation(rulesets);
-				// Preserve the synthetic current-ruleset entry (sentinel ID)
-				// which may have been added before this async call resolved
-				const sentinel = state.simulation.get(NEW_RULESET_SENTINEL_ID);
-				if (sentinel) {
-					sim.set(NEW_RULESET_SENTINEL_ID, sentinel);
+				const sim = new Map(state.simulation);
+				const loadedIds = new Set<number>();
+
+				for (const rs of rulesets) {
+					if (rs.id == null) continue;
+					loadedIds.add(rs.id);
+					// Don't overwrite the entry currently being edited — it carries the
+					// user's in-progress changes from setCurrentRulesetEntry.
+					if (rs.id === state.currentRulesetId && sim.has(rs.id)) continue;
+					sim.set(rs.id, {
+						id: rs.id,
+						ruleset: rs,
+						enabled: true,
+						simulatedPriority: rs.priority
+					});
 				}
+
+				// Drop entries that are no longer in the loaded set, except the entry
+				// being edited (sentinel for new, real id for existing).
+				for (const id of [...sim.keys()]) {
+					if (!loadedIds.has(id) && id !== state.currentRulesetId) {
+						sim.delete(id);
+					}
+				}
+
 				return {
 					...state,
 					allRulesets: rulesets,
