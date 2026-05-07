@@ -19,6 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $header = rtrim(strtr(base64_encode(json_encode(['alg' => 'HS256', 'typ' => 'JWT'])), '+/', '-_'), '=');
     $payload = rtrim(strtr(base64_encode(json_encode([
         'userId' => $user['id'],
+        'email' => $user['email'],
+        'role' => $user['is_admin'] ? 'admin' : 'user',
         'exp' => time() + (7 * 24 * 60 * 60)
     ])), '+/', '-_'), '=');
     $signature = rtrim(strtr(base64_encode(hash_hmac('sha256', "$header.$payload", JWT_SECRET, true)), '+/', '-_'), '=');
