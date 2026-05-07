@@ -166,6 +166,13 @@ html[data-palette="emerald"][data-mode="dark"] {
 		-moz-osx-font-smoothing: grayscale;
 	}
 
+	/* Restore pointer cursor on enabled buttons (Tailwind 4 preflight strips it) */
+	button:not(:disabled),
+	[role="button"]:not([aria-disabled="true"]),
+	summary {
+		cursor: pointer;
+	}
+
 	/* Focus ring using accent color */
 	*:focus-visible {
 		outline: 2px solid var(--color-accent);

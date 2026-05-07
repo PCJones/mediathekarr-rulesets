@@ -252,11 +252,11 @@
 			<h3 class="font-semibold text-lg">Neue Regel hinzufügen</h3>
 
 			<!-- Rule type tabs -->
-			<div class="flex gap-1 bg-surface rounded-lg p-1 w-fit">
+			<div class="flex gap-1 border border-border rounded-lg p-1 w-fit">
 				<button
 					class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-					class:bg-bg={newRuleType === 'regex'}
-					class:text-text={newRuleType === 'regex'}
+					class:bg-accent={newRuleType === 'regex'}
+					class:text-accent-text={newRuleType === 'regex'}
 					class:text-text-secondary={newRuleType !== 'regex'}
 					onclick={() => newRuleType = 'regex'}
 				>
@@ -264,8 +264,8 @@
 				</button>
 				<button
 					class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-					class:bg-bg={newRuleType === 'static'}
-					class:text-text={newRuleType === 'static'}
+					class:bg-accent={newRuleType === 'static'}
+					class:text-accent-text={newRuleType === 'static'}
 					class:text-text-secondary={newRuleType !== 'static'}
 					onclick={() => newRuleType = 'static'}
 				>
