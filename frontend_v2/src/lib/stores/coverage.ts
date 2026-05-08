@@ -132,6 +132,29 @@ function createCoverageStore() {
 		return sim;
 	}
 
+	/**
+	 * Move the entry with the given id by `delta` positions (-1 = up, +1 = down)
+	 * in the priority-sorted order, then reassign all `simulatedPriority` values
+	 * to consecutive 0..N-1 by position. Returns a new state slice.
+	 */
+	function reorder(state: CoverageState, id: number, delta: -1 | 1): CoverageState {
+		const sorted = [...state.simulation.values()].sort(
+			(a, b) => a.simulatedPriority - b.simulatedPriority
+		);
+		const idx = sorted.findIndex(s => s.id === id);
+		const targetIdx = idx + delta;
+		if (idx < 0 || targetIdx < 0 || targetIdx >= sorted.length) return state;
+
+		[sorted[idx], sorted[targetIdx]] = [sorted[targetIdx], sorted[idx]];
+
+		const sim = new Map<number, SimulatedRuleset>();
+		sorted.forEach((entry, i) => {
+			sim.set(entry.id, { ...entry, simulatedPriority: i });
+		});
+
+		return { ...state, simulation: sim };
+	}
+
 	return {
 		subscribe,
 
@@ -169,6 +192,20 @@ function createCoverageStore() {
 					if (!loadedIds.has(id) && id !== state.currentRulesetId) {
 						sim.delete(id);
 					}
+				}
+
+				// Default the new-ruleset sentinel to the lowest priority (max + 1)
+				// once existing rulesets are known.
+				const sentinel = sim.get(NEW_RULESET_SENTINEL_ID);
+				if (sentinel) {
+					const otherPriorities = [...sim.values()]
+						.filter(s => s.id !== NEW_RULESET_SENTINEL_ID)
+						.map(s => s.simulatedPriority);
+					const maxPriority = otherPriorities.length > 0 ? Math.max(...otherPriorities) : -1;
+					sim.set(NEW_RULESET_SENTINEL_ID, {
+						...sentinel,
+						simulatedPriority: maxPriority + 1
+					});
 				}
 
 				return {
@@ -289,48 +326,22 @@ function createCoverageStore() {
 			});
 		},
 
-		/** Move a ruleset up (swap priority with the one above) */
+		/**
+		 * Move a ruleset up (towards priority 0).
+		 * Renumbers all entries to consecutive priorities (0..N-1) based on the new
+		 * order. This eliminates ties and keeps 0 as the floor (no negatives).
+		 */
 		moveRulesetUp: (id: number) => {
-			update(state => {
-				const sim = new Map(state.simulation);
-				const sorted = [...sim.values()].sort((a, b) => a.simulatedPriority - b.simulatedPriority);
-				const idx = sorted.findIndex(s => s.id === id);
-				if (idx <= 0) return state;
-
-				const current = sorted[idx];
-				const above = sorted[idx - 1];
-
-				if (current.simulatedPriority === above.simulatedPriority) {
-					sim.set(id, { ...current, simulatedPriority: current.simulatedPriority - 1 });
-				} else {
-					sim.set(id, { ...current, simulatedPriority: above.simulatedPriority });
-					sim.set(above.id, { ...above, simulatedPriority: current.simulatedPriority });
-				}
-
-				return { ...state, simulation: sim };
-			});
+			update(state => reorder(state, id, -1));
 		},
 
-		/** Move a ruleset down (swap priority with the one below) */
+		/**
+		 * Move a ruleset down (towards higher priority numbers).
+		 * Renumbers all entries to consecutive priorities (0..N-1) based on the new
+		 * order. This eliminates ties and keeps 0 as the floor (no negatives).
+		 */
 		moveRulesetDown: (id: number) => {
-			update(state => {
-				const sim = new Map(state.simulation);
-				const sorted = [...sim.values()].sort((a, b) => a.simulatedPriority - b.simulatedPriority);
-				const idx = sorted.findIndex(s => s.id === id);
-				if (idx < 0 || idx >= sorted.length - 1) return state;
-
-				const current = sorted[idx];
-				const below = sorted[idx + 1];
-
-				if (current.simulatedPriority === below.simulatedPriority) {
-					sim.set(id, { ...current, simulatedPriority: current.simulatedPriority + 1 });
-				} else {
-					sim.set(id, { ...current, simulatedPriority: below.simulatedPriority });
-					sim.set(below.id, { ...below, simulatedPriority: current.simulatedPriority });
-				}
-
-				return { ...state, simulation: sim };
-			});
+			update(state => reorder(state, id, 1));
 		},
 
 		/** Reset simulation to actual priorities */

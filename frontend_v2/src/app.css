@@ -635,6 +635,19 @@ html[data-palette="emerald"][data-mode="dark"] {
 	text-decoration: line-through;
 }
 
+.priority-edge-label {
+	font-size: 0.625rem;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--color-accent);
+	line-height: 1;
+}
+
+.priority-edge-label.is-lowest {
+	color: var(--color-text-tertiary);
+}
+
 /* Drawer overlay */
 .coverage-drawer-backdrop {
 	position: fixed;
@@ -648,7 +661,7 @@ html[data-palette="emerald"][data-mode="dark"] {
 	top: 0;
 	right: 0;
 	bottom: 0;
-	width: min(380px, 90vw);
+	width: min(460px, 92vw);
 	background-color: var(--color-surface);
 	border-left: 1px solid var(--color-border-strong);
 	z-index: 50;

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { setContext, onDestroy } from 'svelte';
 	import { untrack } from 'svelte';
+	import { get } from 'svelte/store';
 	import { rulesetStore, wizardStore, wizardSteps, isRulesetValid } from '$stores/ruleset';
 	import { previewStore } from '$stores/preview';
-	import { coverageStore } from '$stores/coverage';
+	import { coverageStore, currentSimulatedPriority } from '$stores/coverage';
 	import { getRulesetsForMedia } from '$api/rulesets';
 	import WizardBreadcrumb from './WizardBreadcrumb.svelte';
 	import LivePreviewPanel from './LivePreviewPanel.svelte';
@@ -74,6 +75,21 @@
 		untrack(() => {
 			coverageStore.setCurrentRulesetEntry(currentData, existingRuleset?.id);
 		});
+	});
+
+	// Sync the simulated priority of the entry being edited back into rulesetStore so
+	// that saving the wizard persists the priority chosen in the simulator (e.g. a new
+	// ruleset's "lowest priority by default" or a manual reorder).
+	// Skip when the simulation has not yet populated the entry — currentSimulatedPriority
+	// falls back to 0, which would otherwise clobber the loaded ruleset's real priority.
+	$effect(() => {
+		const simPriority = $currentSimulatedPriority;
+		const cov = get(coverageStore);
+		const id = cov.currentRulesetId;
+		if (id == null || !cov.simulation.has(id)) return;
+		if (get(rulesetStore).priority !== simPriority) {
+			rulesetStore.setPriority(simPriority);
+		}
 	});
 
 	// Cleanup coverage store on unmount

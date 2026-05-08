@@ -210,7 +210,7 @@
 					</div>
 				{:else}
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-						{#each rulesets.sort((a, b) => a.priority - b.priority) as ruleset}
+						{#each [...rulesets].sort((a, b) => a.priority - b.priority) as ruleset}
 							<RulesetTile
 								{ruleset}
 								isSelected={editingRuleset?.id === ruleset.id}

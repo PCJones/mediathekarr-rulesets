@@ -108,6 +108,13 @@
 						{sim.simulatedPriority}
 					</span>
 
+					<!-- Highest / lowest indicator -->
+					{#if isFirst || isLast}
+						<span class="priority-edge-label shrink-0" class:is-lowest={isLast && !isFirst}>
+							{isFirst ? 'höchste' : 'niedrigste'}
+						</span>
+					{/if}
+
 					<!-- Ruleset info -->
 					<div class="flex-1 min-w-0 flex items-center gap-1.5">
 						<span class="simulator-label truncate" title={sim.ruleset.topic}>
