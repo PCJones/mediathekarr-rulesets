@@ -152,21 +152,28 @@ export async function createRuleset(ruleset: Omit<Ruleset, 'id'> & { mediaId?: n
  * Update an existing ruleset
  */
 export async function updateRuleset(id: number, ruleset: Partial<Ruleset>): Promise<Ruleset> {
+	const body: Record<string, unknown> = {};
+	for (const key of ['mediaId', 'topic', 'priority', 'filters', 'titleRegexRules', 'matchingStrategy'] as const) {
+		if (key in ruleset) body[key] = ruleset[key];
+	}
+	for (const key of ['episodeRegex', 'seasonRegex'] as const) {
+		if (key in ruleset) body[key] = ruleset[key] || null;
+	}
+
 	const updated = await apiRequest<RawRuleset>(`/rulesets/${id}`, {
 		method: 'PUT',
-		body: JSON.stringify({
-			mediaId: ruleset.mediaId,
-			topic: ruleset.topic,
-			priority: ruleset.priority,
-			filters: ruleset.filters,
-			titleRegexRules: ruleset.titleRegexRules,
-			episodeRegex: ruleset.episodeRegex || null,
-			seasonRegex: ruleset.seasonRegex || null,
-			matchingStrategy: ruleset.matchingStrategy
-		})
+		body: JSON.stringify(body)
 	});
 
 	return mapRuleset(updated);
+}
+
+export async function reorderRulesets(changes: Array<{ id: number; priority: number }>): Promise<Ruleset[]> {
+	const updated = await apiRequest<RawRuleset[]>('/rulesets/reorder', {
+		method: 'PUT',
+		body: JSON.stringify(changes)
+	});
+	return updated.map(mapRuleset);
 }
 
 /**

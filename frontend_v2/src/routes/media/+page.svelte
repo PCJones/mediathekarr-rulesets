@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getAllMedia } from '$api/media';
-	import { isAuthenticated } from '$stores/auth';
+	import { isAdmin } from '$stores/auth';
 	import type { Media } from '$types';
 	import MediaCard from '$components/media/MediaCard.svelte';
 	import AddMediaForm from '$components/media/AddMediaForm.svelte';
@@ -60,7 +60,7 @@
 			<p class="text-text-secondary mt-1">Shows und Filme mit Rulesets verwalten</p>
 		</div>
 
-		{#if $isAuthenticated}
+		{#if $isAdmin}
 			<Button variant="primary" onclick={() => { showForm = true; }}>
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
 					<path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
@@ -86,7 +86,7 @@
 
 	<!-- Content -->
 	<div class="flex flex-col lg:flex-row gap-6">
-		{#if showForm && $isAuthenticated}
+		{#if showForm && $isAdmin}
 			<div class="lg:w-1/3">
 				<AddMediaForm
 					onCreated={handleMediaCreated}

@@ -10,3 +10,5 @@ Important for setup:
 - rename config.example.php > config.php
 - Change JWT_SECRET in config.php
 - If needed set CORS allowed origin in config.php
+- Open `/api/v2/install.php` once to create the database and the admin account (re-opening it later only applies schema migrations)
+- Optional GitHub login: create an OAuth app at https://github.com/settings/developers with callback URL `<frontend-url>/auth/github/callback` and set `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` in config.php. Registration with username/email/password works without it.

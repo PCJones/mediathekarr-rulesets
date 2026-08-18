@@ -33,12 +33,14 @@ function createAuthStore() {
 				const token = getToken();
 				let role: UserRole = 'user';
 				let email = '';
+				let username = '';
 
 				if (token) {
 					try {
 						const payload = JSON.parse(atob(token.split('.')[1]));
 						role = payload.role || 'user';
 						email = payload.email || payload.sub || '';
+						username = payload.username || '';
 					} catch {
 						// Token parse failed, use defaults
 					}
@@ -46,7 +48,7 @@ function createAuthStore() {
 
 				set({
 					isAuthenticated: true,
-					user: { email, role, displayName: email.split('@')[0] },
+					user: { email, username, role, displayName: username || email.split('@')[0] },
 					isLoading: false
 				});
 			} else {

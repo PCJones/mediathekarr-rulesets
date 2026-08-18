@@ -44,3 +44,5 @@ api/v2/config.php
 *.swo
 *~
 .cache/
+
+api/v2/database/.installed

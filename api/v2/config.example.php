@@ -12,7 +12,20 @@ $allowedOrigins = [
     'http://localhost:5173',
 ];
 
+// The default lives inside the webroot and relies on database/.htaccess (Apache + AllowOverride).
+// On any other server, point this outside the webroot or the whole DB is downloadable.
 define('DB_PATH', __DIR__ . '/database/database.sqlite');
+
+/*
+|--------------------------------------------------------------------------
+| GitHub OAuth (optional) - leave empty to disable "Login mit GitHub"
+| Create an OAuth app at https://github.com/settings/developers with
+| callback URL: <frontend-url>/auth/github/callback
+|--------------------------------------------------------------------------
+*/
+define('GITHUB_CLIENT_ID', '');
+define('GITHUB_CLIENT_SECRET', '');
+
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (in_array($origin, $allowedOrigins)) {
@@ -27,6 +40,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
+
+if (JWT_SECRET === 'replace-with-your-own-NqlxRWA0A2FeSVMw' || strlen(JWT_SECRET) < 32) {
+    errorResponse('JWT_SECRET is not configured. Set a random secret of at least 32 characters in config.php.', 500);
+}
+
+set_exception_handler(function (Throwable $e): void {
+    error_log($e);
+    errorResponse('Internal server error', 500);
+});
 
 function getDatabase(): PDO {
     static $db = null;
@@ -70,6 +92,9 @@ function getJsonInput(): array {
     if (json_last_error() !== JSON_ERROR_NONE) {
         errorResponse('Invalid JSON input', 400);
     }
+    if ($data !== null && !is_array($data)) {
+        errorResponse('JSON body must be an object or array', 400);
+    }
     return $data ?? [];
 }
 
@@ -82,8 +107,9 @@ function validateRequired(array $data, array $fields): void {
 }
 
 function validateRegex(string $pattern, string $fieldName): void {
-    if (@preg_match('/' . $pattern . '/', '') === false) {
-        errorResponse("Invalid regex in '$fieldName': " . preg_last_error_msg(), 400);
+    if (@preg_match("\x01" . $pattern . "\x01", '') === false) {
+        $detail = preg_replace('/^preg_match\(\): (Compilation failed: )?/', '', error_get_last()['message'] ?? 'invalid pattern');
+        errorResponse("Invalid regex in '$fieldName': $detail", 400);
     }
 }
 ?>

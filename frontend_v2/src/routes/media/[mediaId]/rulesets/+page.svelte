@@ -3,7 +3,7 @@
 	import { getMedia } from '$api/media';
 	import { getRulesetsForMedia, createRuleset, updateRuleset, deleteRuleset } from '$api/rulesets';
 	import { getShowData, calculateDurationInfo } from '$api/tvdb';
-	import { isAuthenticated } from '$stores/auth';
+	import { isAdmin } from '$stores/auth';
 	import type { Media, Ruleset, DurationInfo, TvdbShowData } from '$types';
 	import WizardBuilder from '$components/wizard/WizardBuilder.svelte';
 	import RulesetTile from '$components/rulesets/RulesetTile.svelte';
@@ -53,7 +53,7 @@
 				}
 			}
 
-			if (rulesets.length === 0) {
+			if (rulesets.length === 0 && $isAdmin) {
 				showWizard = true;
 			}
 		} catch (e) {
@@ -158,7 +158,7 @@
 					</div>
 				</div>
 
-				{#if rulesets.length > 0 && !showWizard && $isAuthenticated}
+				{#if rulesets.length > 0 && !showWizard && $isAdmin}
 					<Button variant="primary" onclick={startAddNew}>
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
@@ -183,7 +183,7 @@
 			<div>
 				<div class="flex justify-between items-center mb-4">
 					<h2 class="text-xl font-semibold">
-						{editingRuleset ? 'Ruleset bearbeiten' : 'Neues Ruleset erstellen'}
+						{editingRuleset ? ($isAdmin ? 'Ruleset bearbeiten' : 'Ruleset ansehen') : 'Neues Ruleset erstellen'}
 					</h2>
 				</div>
 
@@ -206,7 +206,9 @@
 				{#if rulesets.length === 0}
 					<div class="text-center py-8 bg-surface rounded-lg border border-border">
 						<p class="text-text-secondary mb-2">Keine Rulesets vorhanden</p>
-						<p class="text-sm text-text-tertiary">Das erste Ruleset wird automatisch erstellt</p>
+						{#if $isAdmin}
+							<p class="text-sm text-text-tertiary">Das erste Ruleset wird automatisch erstellt</p>
+						{/if}
 					</div>
 				{:else}
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -214,6 +216,7 @@
 							<RulesetTile
 								{ruleset}
 								isSelected={editingRuleset?.id === ruleset.id}
+								canEdit={$isAdmin}
 								onEdit={() => startEdit(ruleset)}
 								onDelete={() => handleDelete(ruleset)}
 								onDuplicate={() => handleDuplicate(ruleset)}

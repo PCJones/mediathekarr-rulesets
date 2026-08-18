@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { rulesetStore, wizardStore, isRulesetValid } from '$stores/ruleset';
+	import { isAdmin } from '$stores/auth';
 	import { queryByTopic } from '$api/mediathekview';
 	import { exportRulesetAsJson } from '$api/rulesets';
 	import {
@@ -191,9 +192,13 @@
 </script>
 
 <div class="test-and-save">
-	<h2 class="text-xl font-bold mb-1">Testen & Speichern</h2>
+	<h2 class="text-xl font-bold mb-1">{$isAdmin ? 'Testen & Speichern' : 'Testen'}</h2>
 	<p class="text-text-secondary text-sm mb-4">
-		Teste dein Ruleset gegen echte Mediathek-Daten und speichere es, wenn alles funktioniert.
+		{#if $isAdmin}
+			Teste dein Ruleset gegen echte Mediathek-Daten und speichere es, wenn alles funktioniert.
+		{:else}
+			Teste das Ruleset gegen echte Mediathek-Daten. Änderungen speichern können derzeit nur Admins.
+		{/if}
 	</p>
 
 	{#if saveSuccess}
@@ -231,6 +236,7 @@
 			Test starten
 		</button>
 
+		{#if $isAdmin}
 		<button
 			class="btn btn-primary"
 			onclick={handleSave}
@@ -245,6 +251,7 @@
 			{/if}
 			{isEditing ? 'Aktualisieren' : 'Speichern'}
 		</button>
+		{/if}
 
 		<button class="btn" onclick={handleExport}>
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -318,8 +325,11 @@
 							<button
 								class="btn btn-ghost btn-sm"
 								onclick={() => toggleExpand(result.id)}
+								aria-label={isExpanded ? 'Details ausblenden' : 'Details anzeigen'}
 							>
-								{isExpanded ? 'up' : 'dn'}
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform" class:rotate-180={isExpanded} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+									<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+								</svg>
 							</button>
 						</div>
 

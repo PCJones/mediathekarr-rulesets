@@ -3,7 +3,7 @@ services:
     build: .
     container_name: mediathekarr-api
     ports:
-      - "8080:80"
+      - "8090:80"
     volumes:
       - ./../api:/var/www/html
     environment:

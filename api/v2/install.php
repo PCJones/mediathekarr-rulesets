@@ -17,15 +17,22 @@ if (file_exists(DB_PATH)) {
     exit;
 }
 
+$lockFile = __DIR__ . '/database/.installed';
+if (file_exists($lockFile)) {
+    http_response_code(403);
+    die('Installation is locked: database/.installed exists but the database file is missing. Restore the database or remove the lock file to reinstall.');
+}
+
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim($_POST['username'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
 
-    if (empty($email) || empty($password)) {
-        $error = 'Email and password are required.';
+    if (empty($username) || empty($email) || empty($password)) {
+        $error = 'Username, email and password are required.';
     } elseif ($password !== $confirmPassword) {
         $error = 'Passwords do not match.';
     } elseif (strlen($password) < 8) {
@@ -39,11 +46,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->exec("
                 CREATE TABLE users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
                     email TEXT UNIQUE NOT NULL,
                     password TEXT NOT NULL,
+                    github_id TEXT,
                     is_admin INTEGER DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 );
+                CREATE UNIQUE INDEX idx_users_username ON users(username COLLATE NOCASE);
+                CREATE UNIQUE INDEX idx_users_github_id ON users(github_id);
 
                 CREATE TABLE media (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,17 +78,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     matchingStrategy TEXT NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(mediaId) REFERENCES media(id) ON DELETE SET NULL
+                    FOREIGN KEY(mediaId) REFERENCES media(id) ON DELETE CASCADE
                 );
 
                 CREATE TABLE ruleset_changelog (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ruleset_id INTEGER NOT NULL,
+                    ruleset_id INTEGER,
                     changed_by TEXT NOT NULL,
                     changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     change_summary TEXT NOT NULL,
-                    FOREIGN KEY (ruleset_id) REFERENCES rulesets(id) ON DELETE CASCADE
+                    FOREIGN KEY (ruleset_id) REFERENCES rulesets(id) ON DELETE SET NULL
                 );
+
+                CREATE INDEX idx_rulesets_mediaId ON rulesets(mediaId);
+                CREATE INDEX idx_rulesets_priority ON rulesets(priority);
+                CREATE INDEX idx_ruleset_changelog_ruleset_id ON ruleset_changelog(ruleset_id);
 
                 CREATE TABLE predefined_title_patterns (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,8 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Create admin user
             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-            $stmt = $db->prepare("INSERT INTO users (email, password, is_admin) VALUES (?, ?, 1)");
-            $stmt->execute([$email, $hashedPassword]);
+            $stmt = $db->prepare("INSERT INTO users (username, email, password, is_admin) VALUES (?, ?, ?, 1)");
+            $stmt->execute([$username, $email, $hashedPassword]);
 
             // Insert default patterns
             $titlePatterns = [
@@ -130,6 +145,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute($p);
             }
 
+            file_put_contents($lockFile, date('c'));
+
             echo '<p>Setup complete! <a href="/">Go to app</a></p>';
             exit;
 
@@ -156,6 +173,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <p style="color: red;"><?php echo htmlspecialchars($error); ?></p>
     <?php endif; ?>
     <form method="post">
+        <label for="username">Admin Username:</label><br>
+        <input type="text" id="username" name="username" required value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>"><br><br>
+
         <label for="email">Admin Email:</label><br>
         <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"><br><br>
 

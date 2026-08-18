@@ -141,4 +141,22 @@
 			{/if}
 		</section>
 	{/if}
+
+	<!-- Credits -->
+	<section class="card p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+		<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+		</svg>
+		<div class="text-sm">
+			<h2 class="font-semibold text-base">Danke an MediathekViewWeb</h2>
+			<p class="mt-1 text-text-secondary">
+				Alle Mediathek-Daten in dieser App stammen aus der API von
+				<a href="https://mediathekviewweb.de" target="_blank" rel="noopener" class="text-accent hover:underline font-medium">mediathekviewweb.de</a>
+				– ein Projekt aus der
+				<a href="https://mediathekview.de" target="_blank" rel="noopener" class="text-accent hover:underline">MediathekView</a>-Community.
+				Ohne diese frei zugängliche Schnittstelle gäbe es weder MediathekArr noch diese Ruleset-Verwaltung.
+				Bitte unterstützt das Projekt, wenn ihr könnt.
+			</p>
+		</div>
+	</section>
 </div>

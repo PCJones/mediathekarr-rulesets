@@ -39,13 +39,17 @@ function handleGet(PDO $db): void {
         successResponse(formatMedia($media));
     }
 
+    if ($mediaId !== '') {
+        errorResponse('Not found', 404);
+    }
+
     $stmt = $db->query('SELECT * FROM media ORDER BY name');
     $media = $stmt->fetchAll();
     successResponse(array_map('formatMedia', $media));
 }
 
 function handlePost(PDO $db): void {
-    authenticate();
+    $userId = requireAdmin();
     $input = getJsonInput();
     validateRequired($input, ['name', 'type']);
 
@@ -57,7 +61,7 @@ function handlePost(PDO $db): void {
         INSERT INTO media (name, type, tmdbId, imdbId, tvdbId)
         VALUES (?, ?, ?, ?, ?)
     ');
-    $stmt->execute([
+    executeOrConflict($stmt, [
         $input['name'],
         $input['type'],
         $input['tmdbId'] ?? null,
@@ -69,7 +73,7 @@ function handlePost(PDO $db): void {
 }
 
 function handlePut(PDO $db): void {
-    authenticate();
+    $userId = requireAdmin();
 
     $pathParts = explode('/', trim($_SERVER['PATH_INFO'] ?? '', '/'));
     $mediaId = $pathParts[0] ?? null;
@@ -108,13 +112,24 @@ function handlePut(PDO $db): void {
 
     $params[] = $mediaId;
     $sql = 'UPDATE media SET ' . implode(', ', $updateFields) . ' WHERE id = ?';
-    $db->prepare($sql)->execute($params);
+    executeOrConflict($db->prepare($sql), $params);
 
     successResponse(null, 'Media updated');
 }
 
+function executeOrConflict(PDOStatement $stmt, array $params): void {
+    try {
+        $stmt->execute($params);
+    } catch (PDOException $e) {
+        if (str_contains($e->getMessage(), 'UNIQUE constraint failed')) {
+            errorResponse('Media with this name and type already exists', 409);
+        }
+        throw $e;
+    }
+}
+
 function handleDelete(PDO $db): void {
-    authenticate();
+    $userId = requireAdmin();
 
     $pathParts = explode('/', trim($_SERVER['PATH_INFO'] ?? '', '/'));
     $mediaId = $pathParts[0] ?? null;
@@ -123,14 +138,30 @@ function handleDelete(PDO $db): void {
         errorResponse('Media ID required', 400);
     }
 
-    $stmt = $db->prepare('DELETE FROM media WHERE id = ?');
+    $stmt = $db->prepare('SELECT id FROM media WHERE id = ?');
     $stmt->execute([$mediaId]);
-
-    if ($stmt->rowCount() === 0) {
+    if (!$stmt->fetch()) {
         errorResponse('Media not found', 404);
     }
 
+    $db->beginTransaction();
+    $stmt = $db->prepare('SELECT id, topic FROM rulesets WHERE mediaId = ?');
+    $stmt->execute([$mediaId]);
+    foreach ($stmt->fetchAll() as $ruleset) {
+        $db->prepare('INSERT INTO ruleset_changelog (ruleset_id, changed_by, change_summary) VALUES (NULL, ?, ?)')
+            ->execute([currentUserEmail($db, $userId), 'Ruleset gelöscht (mit Media): ' . $ruleset['topic'] . ' (#' . $ruleset['id'] . ')']);
+    }
+    $db->prepare('DELETE FROM rulesets WHERE mediaId = ?')->execute([$mediaId]);
+    $db->prepare('DELETE FROM media WHERE id = ?')->execute([$mediaId]);
+    $db->commit();
+
     successResponse(null, 'Media deleted');
+}
+
+function currentUserEmail(PDO $db, int $userId): string {
+    $stmt = $db->prepare('SELECT email FROM users WHERE id = ?');
+    $stmt->execute([$userId]);
+    return $stmt->fetch()['email'] ?? 'unknown';
 }
 
 function formatMedia(array $media): array {

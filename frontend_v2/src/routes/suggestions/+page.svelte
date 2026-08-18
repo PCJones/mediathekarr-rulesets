@@ -65,7 +65,7 @@
 		</div>
 
 		{#if $isUser || $isAdmin}
-			<Button variant="primary" href="/suggestions/new">
+			<Button variant="primary" disabled>
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
 					<path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
 				</svg>

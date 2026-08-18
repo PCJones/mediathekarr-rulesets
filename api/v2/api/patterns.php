@@ -27,18 +27,24 @@ switch ($method) {
 }
 
 function handleGet(PDO $db): void {
-    $titleStmt = $db->query('
+    $includeInactive = !empty($_GET['includeInactive']);
+    if ($includeInactive) {
+        requireAdmin();
+    }
+    $where = $includeInactive ? '' : 'WHERE is_active = 1';
+
+    $titleStmt = $db->query("
         SELECT * FROM predefined_title_patterns
-        WHERE is_active = 1
+        $where
         ORDER BY sort_order, name
-    ');
+    ");
     $titlePatterns = $titleStmt->fetchAll();
 
-    $seStmt = $db->query('
+    $seStmt = $db->query("
         SELECT * FROM predefined_season_episode_patterns
-        WHERE is_active = 1
+        $where
         ORDER BY sort_order, name
-    ');
+    ");
     $sePatterns = $seStmt->fetchAll();
 
     successResponse([

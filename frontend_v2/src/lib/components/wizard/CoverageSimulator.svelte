@@ -5,7 +5,7 @@
 		hasSimulationChanges,
 		NEW_RULESET_SENTINEL_ID
 	} from '$stores/coverage';
-	import { updateRuleset } from '$api/rulesets';
+	import { reorderRulesets } from '$api/rulesets';
 	import Badge from '$components/ui/Badge.svelte';
 	import Button from '$components/ui/Button.svelte';
 
@@ -52,10 +52,9 @@
 				}
 			}
 
-			// Save all changed priorities in parallel
-			await Promise.all(
-				changed.map(({ id, priority }) => updateRuleset(id, { priority }))
-			);
+			if (changed.length > 0) {
+				await reorderRulesets(changed);
+			}
 
 			// Update local state so hasSimulationChanges resets correctly
 			coverageStore.applyPriorityChanges(changed);

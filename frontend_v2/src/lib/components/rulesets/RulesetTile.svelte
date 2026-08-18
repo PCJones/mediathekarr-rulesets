@@ -9,9 +9,10 @@
 		onEdit: () => void;
 		onDelete: () => void;
 		onDuplicate: () => void;
+		canEdit?: boolean;
 	}
 
-	let { ruleset, isSelected = false, onEdit, onDelete, onDuplicate }: Props = $props();
+	let { ruleset, isSelected = false, onEdit, onDelete, onDuplicate, canEdit = true }: Props = $props();
 
 	function getStrategyLabel(strategy: string): string {
 		const labels: Record<string, string> = {
@@ -55,6 +56,7 @@
 				</div>
 			</div>
 
+			{#if canEdit}
 			<Dropdown align="right">
 				{#snippet trigger()}
 					<button
@@ -73,6 +75,7 @@
 					<button class="w-full px-3 py-2 text-left text-sm text-error hover:bg-surface-raised" onclick={onDelete}>Löschen</button>
 				{/snippet}
 			</Dropdown>
+			{/if}
 		</div>
 
 		<p class="text-xs text-text-tertiary mt-2 truncate">
