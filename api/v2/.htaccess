@@ -14,7 +14,7 @@ RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
 RewriteRule ^media/(\d+)/rulesets(/.*)?$ api/rulesets.php/media/$1 [L,QSA]
 RewriteRule ^rulesets(/.*)?$ api/rulesets.php$1 [L,QSA]
-RewriteRule ^patterns(/.*)?$ api/patterns.php$1 [L,QSA]
 RewriteRule ^changelog(/.*)?$ api/changelog.php$1 [L,QSA]
+RewriteRule ^suggestions(/.*)?$ api/suggestions.php$1 [L,QSA]
 RewriteRule ^auth(/.*)?$ api/login.php$1 [L,QSA]
 RewriteRule ^media(/.*)?$ api/media.php$1 [L,QSA]

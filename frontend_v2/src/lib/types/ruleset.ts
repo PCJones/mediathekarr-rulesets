@@ -118,26 +118,6 @@ export interface Ruleset {
 	createdBy?: string;
 }
 
-// Predefined patterns (admin-configurable)
-export interface PredefinedTitlePattern {
-	id: number;
-	name: string;
-	pattern: string;
-	description?: string;
-	sortOrder: number;
-	isActive: boolean;
-}
-
-export interface PredefinedSeasonEpisodePattern {
-	id: number;
-	name: string;
-	seasonPattern?: string;
-	episodePattern?: string;
-	description?: string;
-	sortOrder: number;
-	isActive: boolean;
-}
-
 // Changelog entry for versioning
 export interface RulesetChangelogEntry {
 	id: number;

@@ -87,6 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     changed_by TEXT NOT NULL,
                     changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     change_summary TEXT NOT NULL,
+                    suggestion_id INTEGER,
+                    applied_by TEXT,
                     FOREIGN KEY (ruleset_id) REFERENCES rulesets(id) ON DELETE SET NULL
                 );
 
@@ -94,56 +96,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 CREATE INDEX idx_rulesets_priority ON rulesets(priority);
                 CREATE INDEX idx_ruleset_changelog_ruleset_id ON ruleset_changelog(ruleset_id);
 
-                CREATE TABLE predefined_title_patterns (
+                CREATE TABLE suggestions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    pattern TEXT NOT NULL,
-                    description TEXT,
-                    sort_order INTEGER DEFAULT 0,
-                    is_active INTEGER DEFAULT 1
+                    media_id INTEGER,
+                    proposed_media TEXT,
+                    author_id INTEGER NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('open', 'accepted', 'rejected', 'withdrawn')),
+                    current_revision INTEGER NOT NULL DEFAULT 1,
+                    forked_from_id INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    resolved_by INTEGER,
+                    resolved_at DATETIME,
+                    resolution_comment TEXT,
+                    applied_result TEXT,
+                    FOREIGN KEY (media_id) REFERENCES media(id) ON DELETE SET NULL,
+                    FOREIGN KEY (author_id) REFERENCES users(id),
+                    FOREIGN KEY (forked_from_id) REFERENCES suggestions(id) ON DELETE SET NULL
                 );
 
-                CREATE TABLE predefined_season_episode_patterns (
+                CREATE UNIQUE INDEX idx_suggestions_open_per_media
+                    ON suggestions(author_id, media_id) WHERE status = 'open' AND media_id IS NOT NULL;
+                CREATE INDEX idx_suggestions_status ON suggestions(status, updated_at);
+
+                CREATE TABLE suggestion_revisions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    season_pattern TEXT,
-                    episode_pattern TEXT,
-                    description TEXT,
-                    sort_order INTEGER DEFAULT 0,
-                    is_active INTEGER DEFAULT 1
+                    suggestion_id INTEGER NOT NULL,
+                    number INTEGER NOT NULL,
+                    author_id INTEGER NOT NULL,
+                    description TEXT NOT NULL,
+                    bundle TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(suggestion_id, number),
+                    FOREIGN KEY (suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE,
+                    FOREIGN KEY (author_id) REFERENCES users(id)
                 );
+
+                CREATE TABLE suggestion_votes (
+                    suggestion_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (suggestion_id, user_id),
+                    FOREIGN KEY (suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE suggestion_comments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    suggestion_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    edited_at DATETIME,
+                    deleted_at DATETIME,
+                    deleted_by INTEGER,
+                    FOREIGN KEY (suggestion_id) REFERENCES suggestions(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+
+                CREATE INDEX idx_suggestion_comments_suggestion_id ON suggestion_comments(suggestion_id);
             ");
 
             // Create admin user
             $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
             $stmt = $db->prepare("INSERT INTO users (username, email, password, is_admin) VALUES (?, ?, ?, 1)");
             $stmt->execute([$username, $email, $hashedPassword]);
-
-            // Insert default patterns
-            $titlePatterns = [
-                ['Default', '(.*)', 'Alles extrahieren', 0],
-                ['Folge X: Titel (S01/E01)', '^(?:Folge \\d+: )(.+?)(?: \\(\\S+\\))?$', 'Format: Folge 1: Titel (S01/E01)', 1],
-                ['Folge X: Titel', '^Folge \\d+: (.+)$', 'Format: Folge 1: Titel', 2],
-                ['Titel (S01/E01)', '^(.+?) \\(\\S+\\)$', 'Format: Titel (S01/E01)', 3],
-                ['Nach Doppelpunkt', '(?<=: )(.+)$', 'Alles nach dem ersten Doppelpunkt', 4],
-            ];
-
-            $stmt = $db->prepare('INSERT INTO predefined_title_patterns (name, pattern, description, sort_order) VALUES (?, ?, ?, ?)');
-            foreach ($titlePatterns as $p) {
-                $stmt->execute($p);
-            }
-
-            $sePatterns = [
-                ['(S01/E01)', '(?<=S)(\\d{2,4})(?=\\s*/E\\d{2,4})', '(?<=\\bS\\d{2,4}\\s*/E)(\\d{2,4})(?=\\))', 'Format: (S01/E01)', 0],
-                ['Staffel X, Folge Y', '(?<=Staffel\\s)(\\d{1,4})(?=, Folge)', '(?<=Folge\\s)(\\d{1,4})(?=\\))', 'Format: Staffel 1, Folge 2', 1],
-                ['S01E01', '(?<=S)(\\d{2})(?=E)', '(?<=E)(\\d{2})', 'Format: S01E01', 2],
-                ['Episode (XXX)', null, '\\((\\d+)\\)', 'Nur Episodennummer in Klammern', 3],
-            ];
-
-            $stmt = $db->prepare('INSERT INTO predefined_season_episode_patterns (name, season_pattern, episode_pattern, description, sort_order) VALUES (?, ?, ?, ?, ?)');
-            foreach ($sePatterns as $p) {
-                $stmt->execute($p);
-            }
 
             file_put_contents($lockFile, date('c'));
 

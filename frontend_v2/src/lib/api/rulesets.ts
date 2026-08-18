@@ -8,55 +8,10 @@ import type {
 	Filter,
 	RegexRule,
 	RulesetListResponse,
-	PredefinedTitlePattern,
-	PredefinedSeasonEpisodePattern
+	RulesetChangelogEntry
 } from '$types';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api/v2';
-
-function getAuthToken(): string | null {
-	if (typeof localStorage === 'undefined') return null;
-	return localStorage.getItem('token');
-}
-
-/**
- * Make authenticated API request to v2 backend
- * All v2 responses have format: { success: boolean, data?: T, error?: string }
- */
-async function apiRequest<T>(
-	endpoint: string,
-	options: RequestInit = {}
-): Promise<T> {
-	const token = getAuthToken();
-
-	const headers: HeadersInit = {
-		'Content-Type': 'application/json',
-		...(token ? { Authorization: `Bearer ${token}` } : {}),
-		...options.headers
-	};
-
-	const response = await fetch(`${API_URL}${endpoint}`, {
-		...options,
-		headers
-	});
-
-	if (!response.ok) {
-		if (response.status === 401) {
-			localStorage.removeItem('token');
-			throw new Error('Nicht autorisiert. Bitte erneut anmelden.');
-		}
-		const errorData = await response.json().catch(() => ({}));
-		throw new Error(errorData.error || `API Fehler: ${response.status}`);
-	}
-
-	const result = await response.json();
-
-	if (!result.success) {
-		throw new Error(result.error || 'API Fehler');
-	}
-
-	return result.data;
-}
+import { apiRequest } from './client';
 
 // ============ Ruleset CRUD ============
 
@@ -185,16 +140,13 @@ export async function deleteRuleset(id: number): Promise<void> {
 	});
 }
 
-// ============ Predefined Patterns ============
+// ============ Changelog ============
 
 /**
- * Get all predefined patterns
+ * Get the change history of a ruleset (newest first)
  */
-export async function getPredefinedPatterns(): Promise<{
-	titlePatterns: PredefinedTitlePattern[];
-	seasonEpisodePatterns: PredefinedSeasonEpisodePattern[];
-}> {
-	return apiRequest('/patterns');
+export async function getRulesetChangelog(id: number): Promise<RulesetChangelogEntry[]> {
+	return apiRequest<RulesetChangelogEntry[]>(`/changelog/${id}`);
 }
 
 // ============ Export/Import ============
