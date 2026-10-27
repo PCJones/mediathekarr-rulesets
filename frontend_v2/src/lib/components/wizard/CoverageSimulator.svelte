@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import {
 		coverageStore,
 		simulatedRulesets,
@@ -6,6 +7,8 @@
 		NEW_RULESET_SENTINEL_ID
 	} from '$stores/coverage';
 	import { reorderRulesets } from '$api/rulesets';
+	import { suggestionDraft } from '$stores/suggestionDraft';
+	import { strategyLabel } from '$types';
 	import Badge from '$components/ui/Badge.svelte';
 	import Button from '$components/ui/Button.svelte';
 
@@ -14,6 +17,13 @@
 	}
 
 	let { currentRulesetId }: Props = $props();
+
+	const wizardCallbacks = getContext<{
+		mode?: 'direct' | 'draft' | 'view';
+		onReorder?: (order: string[]) => void;
+	}>('wizardCallbacks');
+
+	let mode = $derived(wizardCallbacks?.mode ?? 'direct');
 
 	let isSaving = $state(false);
 	let saveError = $state<string | null>(null);
@@ -65,17 +75,21 @@
 		}
 	}
 
-	function getStrategyLabel(strategy: string): string {
-		const labels: Record<string, string> = {
-			'SeasonAndEpisodeNumber': 'S+E',
-			'AbsoluteEpisodeNumber': 'Abs',
-			'ByAbsoluteEpisodeNumber': 'Abs',
-			'ItemTitleIncludes': 'Titel~',
-			'ItemTitleExact': 'Titel=',
-			'ItemTitleEqualsAirdate': 'Datum'
-		};
-		return labels[strategy] || strategy;
+	/** Bundle order refs: existing ids as strings, temp keys for staged creates. */
+	function handleApplyOrder() {
+		const tempKeys = suggestionDraft.tempKeyById();
+		const order: string[] = [];
+		for (const sim of rulesets) {
+			if (sim.id === NEW_RULESET_SENTINEL_ID) continue;
+			const ref = sim.id < 0 ? tempKeys.get(sim.id) : String(sim.id);
+			if (ref) order.push(ref);
+		}
+		wizardCallbacks?.onReorder?.(order);
+		coverageStore.applyPriorityChanges(
+			rulesets.map((sim) => ({ id: sim.id, priority: sim.simulatedPriority }))
+		);
 	}
+
 </script>
 
 <div class="coverage-simulator">
@@ -85,7 +99,7 @@
 		<div class="flex flex-col gap-1.5">
 			{#each rulesets as sim, idx}
 				{@const isCurrent = sim.id === currentRulesetId}
-			{@const isNew = sim.id === NEW_RULESET_SENTINEL_ID}
+			{@const isNew = sim.id < 0}
 				{@const isFirst = idx === 0}
 				{@const isLast = idx === rulesets.length - 1}
 				<div
@@ -121,11 +135,13 @@
 						</span>
 						{#if isCurrent}
 							<Badge variant="accent" size="sm">{isNew ? 'neu' : 'aktuell'}</Badge>
+						{:else if isNew}
+							<Badge variant="success" size="sm">Neu</Badge>
 						{/if}
 					</div>
 
 					<!-- Strategy badge -->
-					<Badge size="sm">{getStrategyLabel(sim.ruleset.matchingStrategy)}</Badge>
+					<Badge size="sm">{strategyLabel(sim.ruleset.matchingStrategy, true)}</Badge>
 
 					<!-- Reorder buttons -->
 					<div class="flex gap-0.5 shrink-0">
@@ -157,16 +173,22 @@
 		</div>
 
 		<!-- Actions -->
-		{#if hasChanges || saveError}
+		{#if mode !== 'view' && (hasChanges || saveError)}
 			<div class="mt-3 flex flex-col gap-2">
 				{#if saveError}
 					<div class="text-error text-xs">{saveError}</div>
 				{/if}
 				<div class="flex gap-2">
 					{#if hasChanges}
-						<Button size="sm" variant="primary" onclick={handleSavePriorities} loading={isSaving}>
-							Prioritäten speichern
-						</Button>
+						{#if mode === 'draft'}
+							<Button size="sm" variant="primary" onclick={handleApplyOrder}>
+								Reihenfolge übernehmen
+							</Button>
+						{:else}
+							<Button size="sm" variant="primary" onclick={handleSavePriorities} loading={isSaving}>
+								Prioritäten speichern
+							</Button>
+						{/if}
 						<Button size="sm" onclick={handleReset}>
 							Zurücksetzen
 						</Button>

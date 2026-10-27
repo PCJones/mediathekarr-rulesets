@@ -6,8 +6,7 @@
 
 import { writable, derived } from 'svelte/store';
 import type { Ruleset, MediathekItem, TvdbEpisode } from '$types';
-import { evaluateFilters, checkSkipKeywords, buildTitleFromRules } from '$utils/regex';
-import { matchEpisodeByStrategy } from '$utils/tvdbMatcher';
+import { matchesRuleset } from '$utils/coverage';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -50,63 +49,6 @@ const initialState: CoverageState = {
 	isEvaluating: false,
 	simulation: new Map()
 };
-
-// ─── Full-pipeline item matching ─────────────────────────────────
-
-/**
- * Run the complete matching pipeline for an item against a ruleset.
- * Steps: topic match → skip keywords → filter evaluation → title construction → TVDB matching
- */
-function fullMatchItem(
-	item: MediathekItem,
-	ruleset: Ruleset,
-	tvdbEpisodes: TvdbEpisode[]
-): boolean {
-	// 1. Topic match (pipe-separated, case-insensitive)
-	const topics = ruleset.topic.split('|').map(t => t.trim().toLowerCase());
-	if (!topics.some(t => t.length > 0 && item.topic.toLowerCase().includes(t))) {
-		return false;
-	}
-
-	// 2. Skip keywords check
-	const skipKeyword = checkSkipKeywords(item.title);
-	if (skipKeyword !== null) {
-		return false;
-	}
-
-	// 3. Filter evaluation (all must pass)
-	if (ruleset.filters.length > 0) {
-		const filterResults = evaluateFilters(item, ruleset.filters);
-		if (!filterResults.every(r => r.passed)) {
-			return false;
-		}
-	}
-
-	// 4. Title construction
-	if (ruleset.titleRegexRules.length > 0) {
-		const { finalTitle } = buildTitleFromRules(item, ruleset.titleRegexRules);
-		if (finalTitle === null) {
-			return false;
-		}
-	}
-
-	// 5. TVDB matching (if episodes available)
-	if (tvdbEpisodes.length > 0) {
-		const tvdbResult = matchEpisodeByStrategy(
-			item,
-			tvdbEpisodes,
-			ruleset.matchingStrategy,
-			ruleset.titleRegexRules,
-			ruleset.seasonRegex,
-			ruleset.episodeRegex
-		);
-		if (!tvdbResult.matched) {
-			return false;
-		}
-	}
-
-	return true;
-}
 
 // ─── Store creation ──────────────────────────────────────────────
 
@@ -280,7 +222,7 @@ function createCoverageStore() {
 
 						for (const { id, priority, ruleset } of enabledRulesets) {
 							try {
-								if (fullMatchItem(item, ruleset, state.tvdbEpisodes)) {
+								if (matchesRuleset(item, ruleset, state.tvdbEpisodes)) {
 									matches.push({ rulesetId: id, priority });
 								}
 							} catch {

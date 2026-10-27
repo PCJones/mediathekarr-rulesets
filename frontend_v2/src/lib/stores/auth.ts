@@ -34,6 +34,7 @@ function createAuthStore() {
 				let role: UserRole = 'user';
 				let email = '';
 				let username = '';
+				let id = 0;
 
 				if (token) {
 					try {
@@ -41,6 +42,7 @@ function createAuthStore() {
 						role = payload.role || 'user';
 						email = payload.email || payload.sub || '';
 						username = payload.username || '';
+						id = Number(payload.userId) || 0;
 					} catch {
 						// Token parse failed, use defaults
 					}
@@ -48,7 +50,7 @@ function createAuthStore() {
 
 				set({
 					isAuthenticated: true,
-					user: { email, username, role, displayName: username || email.split('@')[0] },
+					user: { id, email, username, role, displayName: username || email.split('@')[0] },
 					isLoading: false
 				});
 			} else {

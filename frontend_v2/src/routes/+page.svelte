@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { isAuthenticated, isAdmin } from '$stores/auth';
 	import { getAllMedia } from '$api/media';
 	import type { Media } from '$types';
-	import Card from '$components/ui/Card.svelte';
 	import Button from '$components/ui/Button.svelte';
 	import Spinner from '$components/ui/Spinner.svelte';
 
@@ -25,84 +23,41 @@
 
 <svelte:head>
 	<title>MediathekArr Rulesets</title>
-	<meta name="description" content="Erstelle und verwalte Rulesets für MediathekArr" />
+	<meta name="description" content="Rulesets für MediathekArr" />
 </svelte:head>
 
-<div class="space-y-10">
+<div class="space-y-8">
 	<!-- Hero -->
-	<section class="py-8 text-center">
+	<section class="text-center">
 		<img
 			src="/logo-ard.png"
 			alt=""
-			class="h-20 md:h-24 w-auto mx-auto mb-5 logo-adaptive opacity-80"
+			class="h-14 w-auto mx-auto mb-1 logo-adaptive opacity-80"
 		/>
 		<h1 class="text-3xl md:text-4xl font-bold">MediathekArr Rulesets</h1>
-		<p class="mt-3 text-lg text-text-secondary max-w-2xl mx-auto">
-			Erstelle Rulesets, um Mediathek-Inhalte automatisch mit TVDB-Episoden zu verknüpfen.
-			Teste deine Regeln live gegen die MediathekViewWeb API.
-		</p>
-		<div class="flex flex-wrap gap-3 justify-center mt-6">
-			{#if $isAdmin}
-				<Button variant="primary" size="lg" href="/media">
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-					</svg>
-					Media verwalten
-				</Button>
-			{:else}
-				<Button variant="primary" size="lg" href="/media">
-					Media durchsuchen
-				</Button>
-			{/if}
-			<Button size="lg" href="/suggestions">
-				Vorschläge ansehen
-			</Button>
+		<div class="mt-3 max-w-2xl mx-auto space-y-3">
+			<p class="text-lg">
+				Rulesets für
+				<a href="https://github.com/PCJones/MediathekArr" target="_blank" rel="noopener" class="text-accent hover:underline">MediathekArr</a>.
+				MediathekArr bindet die ARD- und ZDF-Mediatheken in Sonarr, Radarr und Prowlarr ein.
+			</p>
+			<p>
+				Die Mediatheken benennen Sendungen nicht einheitlich. Ein Ruleset legt pro Serie fest,
+				welche Mediathek-Einträge dazugehören und wie sie den TVDB-Episoden zugeordnet werden.
+				MediathekArr lädt die Rulesets von hier.
+			</p>
+			<p>
+				Die Rulesets werden von der Community gepflegt. Wenn eine Serie fehlt oder falsch
+				zugeordnet wird, kannst du nach dem Login ein Ruleset erstellen oder ändern und als
+				Vorschlag einreichen. Vorschläge von anderen kannst du bewerten und kommentieren. Nach
+				einem Review werden sie übernommen und stehen dann allen MediathekArr-Nutzern zur
+				Verfügung.
+			</p>
 		</div>
-	</section>
-
-	<!-- Feature cards -->
-	<section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-		<Card>
-			<div class="flex items-start gap-3">
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-				</svg>
-				<div>
-					<h3 class="font-semibold">Schritt-für-Schritt Wizard</h3>
-					<p class="mt-1 text-sm text-text-secondary">
-						Erstelle Rulesets mit einem geführten Assistenten: Topics definieren, Filter setzen, Matching-Strategie wählen.
-					</p>
-				</div>
-			</div>
-		</Card>
-
-		<Card>
-			<div class="flex items-start gap-3">
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-				</svg>
-				<div>
-					<h3 class="font-semibold">Live-Sandbox</h3>
-					<p class="mt-1 text-sm text-text-secondary">
-						Teste Suchanfragen in Echtzeit gegen echte MediathekViewWeb-Daten mit detaillierter Vorschau.
-					</p>
-				</div>
-			</div>
-		</Card>
-
-		<Card>
-			<div class="flex items-start gap-3">
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-				</svg>
-				<div>
-					<h3 class="font-semibold">TVDB-Integration</h3>
-					<p class="mt-1 text-sm text-text-secondary">
-						Automatische Verknüpfung mit TVDB-Episoden durch verschiedene Matching-Strategien.
-					</p>
-				</div>
-			</div>
-		</Card>
+		<div class="flex flex-wrap gap-3 justify-center mt-6">
+			<Button variant="primary" href="/media">Serien</Button>
+			<Button href="/suggestions">Vorschläge</Button>
+		</div>
 	</section>
 
 	<!-- Recent shows -->
@@ -142,21 +97,52 @@
 		</section>
 	{/if}
 
-	<!-- Credits -->
-	<section class="card p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-		<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-		</svg>
-		<div class="text-sm">
-			<h2 class="font-semibold text-base">Danke an MediathekViewWeb</h2>
-			<p class="mt-1 text-text-secondary">
-				Alle Mediathek-Daten in dieser App stammen aus der API von
-				<a href="https://mediathekviewweb.de" target="_blank" rel="noopener" class="text-accent hover:underline font-medium">mediathekviewweb.de</a>
-				– ein Projekt aus der
-				<a href="https://mediathekview.de" target="_blank" rel="noopener" class="text-accent hover:underline">MediathekView</a>-Community.
-				Ohne diese frei zugängliche Schnittstelle gäbe es weder MediathekArr noch diese Ruleset-Verwaltung.
-				Bitte unterstützt das Projekt, wenn ihr könnt.
-			</p>
+	<!-- Credits + contact -->
+	<section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+		<div class="card p-5 md:col-span-2 flex flex-col sm:flex-row items-start gap-4">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+			</svg>
+			<div class="text-sm">
+				<h2 class="font-semibold text-base">Danke an MediathekViewWeb</h2>
+				<p class="mt-1">
+					Alle Mediathek-Daten in dieser App stammen aus der API von
+					<a href="https://mediathekviewweb.de" target="_blank" rel="noopener" class="text-accent hover:underline font-medium">mediathekviewweb.de</a>,
+					einem Projekt aus der
+					<a href="https://mediathekview.de" target="_blank" rel="noopener" class="text-accent hover:underline">MediathekView</a>-Community.
+					Ohne diese Schnittstelle gäbe es weder MediathekArr noch diese Ruleset-Verwaltung.
+					Bitte unterstützt das Projekt, wenn ihr könnt.
+				</p>
+				<p class="mt-3">
+					Danke auch an
+					<a href="https://thetvdb.com" target="_blank" rel="noopener" class="text-accent hover:underline">TheTVDB</a>
+					für die Serien- und Episodendaten.
+				</p>
+			</div>
+		</div>
+
+		<div class="card p-5 text-sm">
+			<h2 class="font-semibold text-base">Hilfe &amp; Kontakt</h2>
+			<ul class="mt-2 space-y-1.5">
+				<li>
+					<a href="https://github.com/PCJones/MediathekArr/issues" target="_blank" rel="noopener" class="text-accent hover:underline font-medium">GitHub Issues</a>:
+					Bugs und Wünsche
+				</li>
+				<li>
+					<a href="https://discord.gg/src6zcH4rr" target="_blank" rel="noopener" class="text-accent hover:underline font-medium">Discord</a>:
+					#mediathekarr auf dem UsenetDE-Server
+				</li>
+				<li>
+					<a href="https://t.me/pc_jones" target="_blank" rel="noopener" class="text-accent hover:underline font-medium">Telegram</a>
+				</li>
+			</ul>
 		</div>
 	</section>
+
+	<p class="text-sm text-center pb-4">
+		MediathekArr unterstützen:
+		<a href="https://www.buymeacoffee.com/pcjones" target="_blank" rel="noopener" class="text-accent hover:underline">Buy Me a Coffee</a>
+		·
+		<a href="https://coindrop.to/pcjones" target="_blank" rel="noopener" class="text-accent hover:underline">Coindrop</a>
+	</p>
 </div>

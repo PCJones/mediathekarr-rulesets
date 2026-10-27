@@ -4,81 +4,38 @@
  */
 
 import type { Media } from '$types';
-
-// API URL for all endpoints
-const API_URL = import.meta.env.VITE_API_URL || '/api/v2';
-
-/**
- * Get auth token from storage
- */
-function getAuthToken(): string | null {
-	if (typeof localStorage === 'undefined') return null;
-	return localStorage.getItem('token');
-}
-
-/**
- * Make authenticated API request
- */
-async function apiRequest<T>(
-	endpoint: string,
-	options: RequestInit = {}
-): Promise<T> {
-	const token = getAuthToken();
-
-	const headers: HeadersInit = {
-		'Content-Type': 'application/json',
-		...(token ? { Authorization: `Bearer ${token}` } : {}),
-		...options.headers
-	};
-
-	const response = await fetch(`${API_URL}${endpoint}`, {
-		...options,
-		headers
-	});
-
-	if (!response.ok) {
-		if (response.status === 401) {
-			localStorage.removeItem('token');
-			throw new Error('Nicht autorisiert. Bitte erneut anmelden.');
-		}
-		throw new Error(`API Fehler: ${response.status} ${response.statusText}`);
-	}
-
-	return response.json();
-}
+import { apiRequest } from './client';
 
 /**
  * Get all media (shows/movies)
  */
-export async function getAllMedia(): Promise<Media[]> {
-	const result = await apiRequest<{ success: boolean; data: Media[] }>('/media');
-	return result.data;
+export async function getAllMedia(options: { withSuggestionCounts?: boolean } = {}): Promise<Media[]> {
+	const query = options.withSuggestionCounts ? '?withSuggestionCounts=1' : '';
+	return apiRequest<Media[]>(`/media${query}`);
 }
 
 /**
  * Get single media by ID
  */
 export async function getMedia(id: number): Promise<Media> {
-	const result = await apiRequest<{ success: boolean; data: Media }>(`/media/${id}`);
-	return result.data;
+	return apiRequest<Media>(`/media/${id}`);
 }
 
 /**
  * Create new media
  */
 export async function createMedia(media: Omit<Media, 'id'>): Promise<{ id: number }> {
-	const result = await apiRequest<{ success: boolean; data: { id: number } }>('/media', {
+	return apiRequest<{ id: number }>('/media', {
 		method: 'POST',
 		body: JSON.stringify(media)
 	});
-	return result.data;
 }
 
 /**
  * Update existing media
  */
 export async function updateMedia(id: number, media: Partial<Media>): Promise<void> {
-	await apiRequest<{ success: boolean }>(`/media/${id}`, {
+	await apiRequest<unknown>(`/media/${id}`, {
 		method: 'PUT',
 		body: JSON.stringify(media)
 	});
@@ -88,7 +45,7 @@ export async function updateMedia(id: number, media: Partial<Media>): Promise<vo
  * Delete media
  */
 export async function deleteMedia(id: number): Promise<void> {
-	await apiRequest<void>(`/media/${id}`, {
+	await apiRequest<unknown>(`/media/${id}`, {
 		method: 'DELETE'
 	});
 }

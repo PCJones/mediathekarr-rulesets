@@ -6,6 +6,8 @@
 	import { previewStore } from '$stores/preview';
 	import { coverageStore, currentSimulatedPriority } from '$stores/coverage';
 	import { getRulesetsForMedia } from '$api/rulesets';
+	import { toBaseRuleset, toRulesetBody } from '$api/suggestions';
+	import { getChangeSnapshot, fetchItemsForTopics, collectItems } from '$utils/coverage';
 	import WizardBreadcrumb from './WizardBreadcrumb.svelte';
 	import LivePreviewPanel from './LivePreviewPanel.svelte';
 	import TopicEditor from './steps/TopicEditor.svelte';
@@ -17,23 +19,99 @@
 	import Button from '$components/ui/Button.svelte';
 	import Alert from '$components/ui/Alert.svelte';
 	import type { Ruleset, Media, DurationInfo, TvdbShowData } from '$types';
+	import type { ChangeSnapshot } from '$types/suggestion';
+
+	export type WizardMode = 'direct' | 'draft' | 'view';
 
 	interface Props {
 		existingRuleset?: Ruleset;
 		media: Media;
 		durationInfo?: DurationInfo | null;
 		tvdbShowData?: TvdbShowData | null;
-		onSave: (data: Omit<Ruleset, 'id'>) => Promise<void>;
+		mode?: WizardMode;
+		/** Effective ruleset list (live + staged bundle); skips the fetch when given. */
+		rulesets?: Ruleset[];
+		/** Live list used for the snapshot's "before" counts; defaults to `rulesets`. */
+		liveRulesets?: Ruleset[];
+		/** Live ruleset an update is based on; null for creates. */
+		baseRuleset?: Ruleset | null;
+		viewNote?: string;
+		onSave: (data: Omit<Ruleset, 'id'>, snapshot: ChangeSnapshot | null) => Promise<void>;
 		onCancel: () => void;
+		onReorder?: (order: string[]) => void;
 		canCancel?: boolean;
 	}
 
-	let { existingRuleset, media, durationInfo = null, tvdbShowData = null, onSave, onCancel, canCancel = true }: Props = $props();
+	let {
+		existingRuleset,
+		media,
+		durationInfo = null,
+		tvdbShowData = null,
+		mode = 'direct',
+		rulesets,
+		liveRulesets,
+		baseRuleset,
+		viewNote,
+		onSave,
+		onCancel,
+		onReorder,
+		canCancel = true
+	}: Props = $props();
+
+	/** Falls back to the edited ruleset itself when the caller has no separate base. */
+	let effectiveBase = $derived(
+		baseRuleset !== undefined
+			? baseRuleset
+			: existingRuleset?.id != null && existingRuleset.id > 0
+				? existingRuleset
+				: null
+	);
+
+	/** Topic the preview items were last fetched for, so saves can reuse them. */
+	let previewTopic: string | null = null;
+
+	$effect(() => {
+		const items = $previewStore.items;
+		const loading = $previewStore.isLoading;
+		untrack(() => {
+			if (!loading && items.length > 0) previewTopic = get(rulesetStore).topic;
+		});
+	});
+
+	async function buildSnapshot(data: Omit<Ruleset, 'id'>): Promise<ChangeSnapshot | null> {
+		const live = liveRulesets ?? rulesets ?? [];
+		const base = effectiveBase;
+		const change = {
+			op: (base ? 'update' : 'create') as 'update' | 'create',
+			ruleset: toRulesetBody(data),
+			...(base ? { base: { ruleset: toBaseRuleset(base) } } : {})
+		};
+
+		let items = previewTopic === data.topic ? $previewStore.items : [];
+		if (items.length === 0) {
+			items = collectItems(data.topic, await fetchItemsForTopics([data.topic]));
+		}
+		if (items.length === 0) return null;
+
+		const saved = { ...data, id: existingRuleset?.id ?? -1 } as Ruleset;
+		const others = (rulesets ?? []).filter((r) => r.id !== saved.id);
+		const effective = [...others, saved];
+
+		return getChangeSnapshot(change, items, live, effective, tvdbShowData?.episodes ?? []);
+	}
+
+	async function handleSave(data: Omit<Ruleset, 'id'>) {
+		const snapshot = mode === 'draft' ? await buildSnapshot(data) : null;
+		await onSave(data, snapshot);
+	}
 
 	// Provide callbacks via context for step components
 	setContext('wizardCallbacks', {
-		get onSave() { return onSave; },
+		get onSave() { return handleSave; },
 		get onCancel() { return onCancel; },
+		get onReorder() { return onReorder; },
+		get mode() { return mode; },
+		get viewNote() { return viewNote; },
 		get media() { return media; },
 		get durationInfo() { return durationInfo; },
 		get tvdbShowData() { return tvdbShowData; }
@@ -58,7 +136,11 @@
 			}
 
 			// Load all rulesets for coverage evaluation (including current)
-			loadAllRulesets();
+			if (rulesets) {
+				coverageStore.setAllRulesets(rulesets);
+			} else {
+				loadAllRulesets();
+			}
 
 			// Set TVDB episodes for full-pipeline matching
 			coverageStore.setTvdbEpisodes(tvdbShowData?.episodes || []);
@@ -108,7 +190,14 @@
 
 	let stepperElement: HTMLElement;
 	let currentStep = $derived($wizardStore.currentStep);
-	let steps = $derived($wizardSteps);
+	/** The last step saves elsewhere outside `direct` mode, so its label follows the mode. */
+	let steps = $derived(
+		$wizardSteps.map((step, index, all) =>
+			index === all.length - 1 && mode !== 'direct'
+				? { ...step, label: mode === 'draft' ? 'Testen & Übernehmen' : 'Testen' }
+				: step
+		)
+	);
 	let canGoNext = $derived(steps[currentStep]?.isValid || steps[currentStep]?.isOptional);
 	let canGoPrev = $derived(currentStep > 0);
 	let isLastStep = $derived(currentStep === steps.length - 1);

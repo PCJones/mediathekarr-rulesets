@@ -3,28 +3,22 @@
  * Login/register/GitHub OAuth and token management
  */
 
-const API_URL = import.meta.env.VITE_API_URL || '/api/v2';
-
-interface TokenResponse {
-	success: boolean;
-	data: { token: string };
-}
+import { API_URL, apiRequest, ApiError, getAuthToken } from './client';
 
 async function authRequest(path: string, body: unknown, fallbackError: string): Promise<string> {
-	const response = await fetch(`${API_URL}/auth${path}`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body)
-	});
-
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({}));
-		throw new Error(error.error || fallbackError);
+	let result: { token: string };
+	try {
+		result = await apiRequest<{ token: string }>(`/auth${path}`, {
+			method: 'POST',
+			body: JSON.stringify(body)
+		});
+	} catch (e) {
+		if (e instanceof ApiError) throw e;
+		throw new Error(fallbackError);
 	}
 
-	const result: TokenResponse = await response.json();
-	localStorage.setItem('token', result.data.token);
-	return result.data.token;
+	localStorage.setItem('token', result.token);
+	return result.token;
 }
 
 /** Login with email or username + password */
@@ -92,14 +86,12 @@ export function logout(): void {
  * Check if user is logged in
  */
 export function isLoggedIn(): boolean {
-	if (typeof localStorage === 'undefined') return false;
-	return !!localStorage.getItem('token');
+	return !!getAuthToken();
 }
 
 /**
  * Get current token
  */
 export function getToken(): string | null {
-	if (typeof localStorage === 'undefined') return null;
-	return localStorage.getItem('token');
+	return getAuthToken();
 }

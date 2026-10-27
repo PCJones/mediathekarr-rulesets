@@ -12,7 +12,7 @@ html[data-palette="signal"][data-mode="light"] {
 	--color-surface-raised: #e4e7ec;
 	--color-text: #1a1d24;
 	--color-text-secondary: #4d5565;
-	--color-text-tertiary: #808a9c;
+	--color-text-tertiary: #5f687a;
 	--color-accent: #2563eb;
 	--color-accent-hover: #1d4ed8;
 	--color-accent-text: #ffffff;
@@ -29,8 +29,8 @@ html[data-palette="signal"][data-mode="dark"] {
 	--color-surface: #171a23;
 	--color-surface-raised: #1f2330;
 	--color-text: #d4d8e4;
-	--color-text-secondary: #8e9ab0;
-	--color-text-tertiary: #5c687e;
+	--color-text-secondary: #a3adc2;
+	--color-text-tertiary: #838ea3;
 	--color-accent: #3b82f6;
 	--color-accent-hover: #60a5fa;
 	--color-accent-text: #0f1117;
@@ -49,7 +49,7 @@ html[data-palette="indigo"][data-mode="light"] {
 	--color-surface-raised: #e3e5ed;
 	--color-text: #1b1d2a;
 	--color-text-secondary: #4e5168;
-	--color-text-tertiary: #82859c;
+	--color-text-tertiary: #606379;
 	--color-accent: #6366f1;
 	--color-accent-hover: #4f46e5;
 	--color-accent-text: #ffffff;
@@ -66,8 +66,8 @@ html[data-palette="indigo"][data-mode="dark"] {
 	--color-surface: #161827;
 	--color-surface-raised: #1e2035;
 	--color-text: #cdd0e0;
-	--color-text-secondary: #8b90b0;
-	--color-text-tertiary: #5a5f7e;
+	--color-text-secondary: #a2a6c4;
+	--color-text-tertiary: #8287a6;
 	--color-accent: #818cf8;
 	--color-accent-hover: #a5b4fc;
 	--color-accent-text: #0e0f16;
@@ -86,7 +86,7 @@ html[data-palette="emerald"][data-mode="light"] {
 	--color-surface-raised: #e3e6e9;
 	--color-text: #1a1d21;
 	--color-text-secondary: #4d5560;
-	--color-text-tertiary: #808890;
+	--color-text-tertiary: #5e666f;
 	--color-accent: #059669;
 	--color-accent-hover: #047857;
 	--color-accent-text: #ffffff;
@@ -103,8 +103,8 @@ html[data-palette="emerald"][data-mode="dark"] {
 	--color-surface: #181b1f;
 	--color-surface-raised: #21252b;
 	--color-text: #d0d5dc;
-	--color-text-secondary: #8b95a5;
-	--color-text-tertiary: #5c6575;
+	--color-text-secondary: #a2abb9;
+	--color-text-tertiary: #838c9b;
 	--color-accent: #10b981;
 	--color-accent-hover: #34d399;
 	--color-accent-text: #101214;
@@ -604,6 +604,51 @@ html[data-palette="emerald"][data-mode="dark"] {
 .coverage-gap {
 	border-left: 3px solid var(--color-error);
 	background-color: color-mix(in srgb, var(--color-error) 5%, transparent);
+}
+
+/* Ruleset diff lines */
+.diff-line {
+	display: grid;
+	grid-template-columns: 1.75rem 8.5rem minmax(0, 1fr);
+	padding: 0.1875rem 0.75rem 0.1875rem 0;
+	line-height: 1.25rem;
+}
+
+.diff-line-old {
+	background-color: color-mix(in srgb, var(--color-error) 7%, transparent);
+}
+
+.diff-line-new {
+	background-color: color-mix(in srgb, var(--color-success) 7%, transparent);
+}
+
+.timeline {
+	position: relative;
+}
+
+.timeline::before {
+	content: '';
+	position: absolute;
+	left: calc(1rem - 1px);
+	top: 0.5rem;
+	bottom: 0;
+	width: 2px;
+	background-color: var(--color-surface-raised);
+}
+
+.timeline-dot {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 1.75rem;
+	height: 1.75rem;
+	border-radius: 9999px;
+	border: 3px solid var(--color-bg);
+	background-color: var(--color-surface-raised);
+	color: var(--color-text-secondary);
 }
 
 /* Coverage simulator panel */

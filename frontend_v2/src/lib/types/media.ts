@@ -13,6 +13,8 @@ export interface Media {
 	imdbId?: string | null;
 	tvdbId?: number | null;
 	coverUrl?: string;
+	/** Only present with `withSuggestionCounts` */
+	openSuggestions?: number;
 }
 
 export interface MediaWithRulesetCount extends Media {

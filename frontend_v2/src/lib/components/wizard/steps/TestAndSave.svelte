@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import { rulesetStore, wizardStore, isRulesetValid } from '$stores/ruleset';
-	import { isAdmin } from '$stores/auth';
 	import { queryByTopic } from '$api/mediathekview';
 	import { exportRulesetAsJson } from '$api/rulesets';
 	import {
@@ -17,10 +16,15 @@
 	const wizardCallbacks = getContext<{
 		onSave: (data: Omit<Ruleset, 'id'>) => Promise<void>;
 		onCancel: () => void;
+		mode: 'direct' | 'draft' | 'view';
+		viewNote?: string;
 		media: Media;
 		durationInfo: DurationInfo | null;
 		tvdbShowData: TvdbShowData | null;
 	}>('wizardCallbacks');
+
+	let mode = $derived(wizardCallbacks?.mode ?? 'direct');
+	let canSaveInMode = $derived(mode !== 'view');
 
 	// Get TVDB episodes from context
 	let tvdbEpisodes = $derived(wizardCallbacks?.tvdbShowData?.episodes || []);
@@ -192,21 +196,34 @@
 </script>
 
 <div class="test-and-save">
-	<h2 class="text-xl font-bold mb-1">{$isAdmin ? 'Testen & Speichern' : 'Testen'}</h2>
+	<h2 class="text-xl font-bold mb-1">
+		{mode === 'view' ? 'Testen' : mode === 'draft' ? 'Testen & Übernehmen' : 'Testen & Speichern'}
+	</h2>
 	<p class="text-text-secondary text-sm mb-4">
-		{#if $isAdmin}
-			Teste dein Ruleset gegen echte Mediathek-Daten und speichere es, wenn alles funktioniert.
+		{#if mode === 'view'}
+			Teste das Ruleset gegen echte Mediathek-Daten.
+		{:else if mode === 'draft'}
+			Teste dein Ruleset gegen echte Mediathek-Daten und übernimm es in deinen Vorschlag.
 		{:else}
-			Teste das Ruleset gegen echte Mediathek-Daten. Änderungen speichern können derzeit nur Admins.
+			Teste dein Ruleset gegen echte Mediathek-Daten und speichere es, wenn alles funktioniert.
 		{/if}
 	</p>
+
+	{#if mode === 'view'}
+		<div class="alert alert-info mb-6">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+			</svg>
+			<span>{wizardCallbacks?.viewNote ?? 'Nur Ansicht — dieses Ruleset kann hier nicht gespeichert werden.'}</span>
+		</div>
+	{/if}
 
 	{#if saveSuccess}
 		<div class="alert alert-success mb-6">
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
 			</svg>
-			<span>Ruleset erfolgreich gespeichert! Weiterleitung...</span>
+			<span>{mode === 'draft' ? 'In den Vorschlag übernommen!' : 'Ruleset erfolgreich gespeichert! Weiterleitung...'}</span>
 		</div>
 	{/if}
 
@@ -236,7 +253,7 @@
 			Test starten
 		</button>
 
-		{#if $isAdmin}
+		{#if canSaveInMode}
 		<button
 			class="btn btn-primary"
 			onclick={handleSave}
@@ -249,7 +266,7 @@
 					<path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z" />
 				</svg>
 			{/if}
-			{isEditing ? 'Aktualisieren' : 'Speichern'}
+			{mode === 'draft' ? 'In Vorschlag übernehmen' : isEditing ? 'Aktualisieren' : 'Speichern'}
 		</button>
 		{/if}
 

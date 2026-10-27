@@ -20,7 +20,7 @@
 		<p class="mt-3 text-lg text-text-secondary">{message}</p>
 		<div class="mt-6 flex gap-3 justify-center">
 			<Button variant="primary" href="/">Zur Startseite</Button>
-			<Button href="/media">Media durchsuchen</Button>
+			<Button href="/media">Serien durchsuchen</Button>
 		</div>
 	</div>
 </div>

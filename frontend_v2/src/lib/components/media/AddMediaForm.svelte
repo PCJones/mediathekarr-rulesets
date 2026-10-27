@@ -9,12 +9,30 @@
 	import Badge from '$components/ui/Badge.svelte';
 	import Spinner from '$components/ui/Spinner.svelte';
 
+	interface PickedMedia {
+		name: string;
+		type: 'show' | 'movie';
+		tvdbId?: number;
+		tmdbId?: number;
+		imdbId?: string;
+	}
+
 	interface Props {
 		onCreated: () => void;
 		onCancel: () => void;
+		/** Replaces the direct `createMedia` call (users propose instead). */
+		onPick?: (media: PickedMedia) => void | Promise<void>;
+		submitLabel?: string;
+		title?: string;
 	}
 
-	let { onCreated, onCancel }: Props = $props();
+	let {
+		onCreated,
+		onCancel,
+		onPick,
+		submitLabel = 'Hinzufügen',
+		title = 'Neue Serie'
+	}: Props = $props();
 
 	// Search state
 	let searchQuery = $state('');
@@ -103,20 +121,33 @@
 		}
 	}
 
+	const positiveId = (value: string | number) => (Number(value) > 0 ? Number(value) : null);
+	let tvdbId = $derived(positiveId(newMedia.tvdbId));
+	let tmdbId = $derived(positiveId(newMedia.tmdbId));
+	let imdbId = $derived(newMedia.imdbId.trim() || null);
+	let isShow = $derived(newMedia.type === 'show');
+	let idsComplete = $derived(isShow ? tvdbId !== null : tmdbId !== null && imdbId !== null);
+
 	async function handleCreateMedia() {
-		if (!newMedia.name.trim()) return;
+		if (!newMedia.name.trim() || !idsComplete) return;
 
 		isSaving = true;
 		formError = null;
 
+		const picked: PickedMedia = {
+			name: newMedia.name.trim(),
+			type: newMedia.type,
+			tvdbId: tvdbId ?? undefined,
+			tmdbId: tmdbId ?? undefined,
+			imdbId: imdbId ?? undefined
+		};
+
 		try {
-			await createMedia({
-				name: newMedia.name,
-				type: newMedia.type,
-				tvdbId: newMedia.tvdbId ? Number(newMedia.tvdbId) : undefined,
-				tmdbId: newMedia.tmdbId ? Number(newMedia.tmdbId) : undefined,
-				imdbId: newMedia.imdbId || undefined
-			});
+			if (onPick) {
+				await onPick(picked);
+				return;
+			}
+			await createMedia(picked);
 			onCreated();
 		} catch (e) {
 			formError = e instanceof Error ? e.message : 'Fehler beim Erstellen';
@@ -128,7 +159,7 @@
 
 <div class="border border-border rounded-lg bg-surface sticky top-20 self-start">
 	<div class="p-4 border-b border-border">
-		<h2 class="text-lg font-semibold">Neues Medium</h2>
+		<h2 class="text-lg font-semibold">{title}</h2>
 	</div>
 
 	<!-- TVDB Search -->
@@ -180,9 +211,9 @@
 			</select>
 		</div>
 
-		<Input label="TVDB ID" type="number" placeholder="Optional" bind:value={newMedia.tvdbId} />
-		<Input label="TMDB ID" type="number" placeholder="Optional" bind:value={newMedia.tmdbId} />
-		<Input label="IMDB ID" placeholder="Optional (z.B. tt1234567)" bind:value={newMedia.imdbId} />
+		<Input label={isShow ? 'TVDB ID *' : 'TVDB ID'} type="number" placeholder={isShow ? 'z.B. 83214' : 'Optional'} bind:value={newMedia.tvdbId} />
+		<Input label={isShow ? 'TMDB ID' : 'TMDB ID *'} type="number" placeholder={isShow ? 'Optional' : 'z.B. 603'} bind:value={newMedia.tmdbId} />
+		<Input label={isShow ? 'IMDB ID' : 'IMDB ID *'} placeholder={isShow ? 'Optional (z.B. tt1234567)' : 'z.B. tt0133093'} bind:value={newMedia.imdbId} />
 
 		<!-- Show Analysis -->
 		{#if selectedSearchResult && newMedia.tvdbId}
@@ -244,10 +275,10 @@
 			<Button
 				type="submit"
 				variant="primary"
-				disabled={!newMedia.name.trim()}
+				disabled={!newMedia.name.trim() || !idsComplete}
 				loading={isSaving}
 			>
-				Hinzufügen
+				{submitLabel}
 			</Button>
 		</div>
 	</form>

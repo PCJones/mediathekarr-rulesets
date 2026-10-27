@@ -74,7 +74,7 @@
 		<Card padding="lg">
 			<h1 class="text-2xl font-bold text-center mb-2">Registrieren</h1>
 			<p class="text-sm text-text-secondary text-center mb-6">
-				Mit einem Konto kannst du Media und Rulesets anlegen und bearbeiten.
+				Mit einem Konto kannst du Serien und Rulesets anlegen und bearbeiten.
 			</p>
 
 			{#if error}

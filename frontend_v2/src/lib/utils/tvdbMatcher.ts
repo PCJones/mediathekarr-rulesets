@@ -121,8 +121,7 @@ export function matchEpisodeByStrategy(
 			};
 		}
 
-		case 'AbsoluteEpisodeNumber':
-		case 'ByAbsoluteEpisodeNumber': {
+		case 'AbsoluteEpisodeNumber': {
 			if (episodeValue === null) {
 				return {
 					...baseResult,

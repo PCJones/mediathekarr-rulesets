@@ -36,7 +36,7 @@
 			authStore.init();
 			goto('/media');
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Login fehlgeschlagen';
+			error = e instanceof Error ? e.message : 'Anmeldung fehlgeschlagen';
 		} finally {
 			isLoading = false;
 		}
@@ -44,13 +44,13 @@
 </script>
 
 <svelte:head>
-	<title>Login - MediathekArr</title>
+	<title>Anmeldung - MediathekArr</title>
 </svelte:head>
 
 <div class="min-h-[60vh] flex items-center justify-center">
 	<div class="w-full max-w-md">
 		<Card padding="lg">
-			<h1 class="text-2xl font-bold text-center mb-6">Login</h1>
+			<h1 class="text-2xl font-bold text-center mb-6">Anmeldung</h1>
 
 			{#if error}
 				<div class="mb-4">

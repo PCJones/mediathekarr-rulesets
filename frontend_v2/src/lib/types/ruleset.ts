@@ -30,7 +30,6 @@ export interface RegexRule {
 // Matching strategies for TVDB episode lookup
 export type MatchingStrategy =
 	| 'SeasonAndEpisodeNumber'    // Extract S##E## from title
-	| 'ByAbsoluteEpisodeNumber'   // Legacy - use episode number as absolute
 	| 'AbsoluteEpisodeNumber'     // Episode number as absolute count
 	| 'ItemTitleExact'            // Constructed title = TVDB episode name
 	| 'ItemTitleIncludes'         // Constructed title is substring of TVDB name
@@ -40,6 +39,7 @@ export type MatchingStrategy =
 export interface MatchingStrategyInfo {
 	value: MatchingStrategy;
 	label: string;
+	shortLabel: string;
 	description: string;
 	requiresSeasonRegex: boolean;
 	requiresEpisodeRegex: boolean;
@@ -50,6 +50,7 @@ export const MATCHING_STRATEGIES: MatchingStrategyInfo[] = [
 	{
 		value: 'SeasonAndEpisodeNumber',
 		label: 'Season + Episode',
+		shortLabel: 'S+E',
 		description: 'Extrahiert S##E## aus dem Titel (z.B. "S19/E03")',
 		requiresSeasonRegex: true,
 		requiresEpisodeRegex: true,
@@ -58,6 +59,7 @@ export const MATCHING_STRATEGIES: MatchingStrategyInfo[] = [
 	{
 		value: 'AbsoluteEpisodeNumber',
 		label: 'Absolute Episodennummer',
+		shortLabel: 'Absolut',
 		description: 'Verwendet die Episodennummer als absoluten Zähler (z.B. Episode 4524)',
 		requiresSeasonRegex: false,
 		requiresEpisodeRegex: true,
@@ -66,6 +68,7 @@ export const MATCHING_STRATEGIES: MatchingStrategyInfo[] = [
 	{
 		value: 'ItemTitleIncludes',
 		label: 'Titel enthält',
+		shortLabel: 'Titel enthält',
 		description: 'Der konstruierte Titel ist Teil des TVDB-Episodennamens',
 		requiresSeasonRegex: false,
 		requiresEpisodeRegex: false,
@@ -74,6 +77,7 @@ export const MATCHING_STRATEGIES: MatchingStrategyInfo[] = [
 	{
 		value: 'ItemTitleExact',
 		label: 'Titel exakt',
+		shortLabel: 'Titel exakt',
 		description: 'Der konstruierte Titel entspricht exakt dem TVDB-Episodennamen',
 		requiresSeasonRegex: false,
 		requiresEpisodeRegex: false,
@@ -81,13 +85,21 @@ export const MATCHING_STRATEGIES: MatchingStrategyInfo[] = [
 	},
 	{
 		value: 'ItemTitleEqualsAirdate',
-		label: 'Titel als Ausstrahlungsdatum',
+		label: 'Titel = Ausstrahlungsdatum',
+		shortLabel: 'Titel = Sendedatum',
 		description: 'Der konstruierte Titel wird als Datum geparst und mit dem Ausstrahlungsdatum abgeglichen',
 		requiresSeasonRegex: false,
 		requiresEpisodeRegex: false,
 		requiresTitleRules: true
 	}
 ];
+
+export function strategyLabel(strategy: string | null | undefined, short = false): string {
+	if (!strategy) return '–';
+	const info = MATCHING_STRATEGIES.find((s) => s.value === strategy);
+	if (!info) return strategy;
+	return short ? info.shortLabel : info.label;
+}
 
 // Complete ruleset structure
 export interface Ruleset {
@@ -116,15 +128,6 @@ export interface Ruleset {
 	createdAt?: string;
 	updatedAt?: string;
 	createdBy?: string;
-}
-
-// Changelog entry for versioning
-export interface RulesetChangelogEntry {
-	id: number;
-	rulesetId: number;
-	changedBy: string;
-	changedAt: string;
-	changeSummary: string;
 }
 
 // API response wrapper

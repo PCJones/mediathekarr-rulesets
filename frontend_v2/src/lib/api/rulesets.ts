@@ -7,8 +7,7 @@ import type {
 	Ruleset,
 	Filter,
 	RegexRule,
-	RulesetListResponse,
-	RulesetChangelogEntry
+	RulesetListResponse
 } from '$types';
 
 import { apiRequest } from './client';
@@ -138,15 +137,6 @@ export async function deleteRuleset(id: number): Promise<void> {
 	await apiRequest<null>(`/rulesets/${id}`, {
 		method: 'DELETE'
 	});
-}
-
-// ============ Changelog ============
-
-/**
- * Get the change history of a ruleset (newest first)
- */
-export async function getRulesetChangelog(id: number): Promise<RulesetChangelogEntry[]> {
-	return apiRequest<RulesetChangelogEntry[]>(`/changelog/${id}`);
 }
 
 // ============ Export/Import ============

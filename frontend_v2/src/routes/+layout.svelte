@@ -5,12 +5,15 @@
 	import { page } from '$app/stores';
 	import { authStore, isAdmin, isAuthenticated } from '$stores/auth';
 	import { themeStore } from '$stores/theme';
+	import { getSuggestions } from '$api/suggestions';
 	import ThemePicker from '$components/ui/ThemePicker.svelte';
 
 	let { children } = $props();
 
 	let currentPath = $derived($page.url.pathname);
 
+	/** Open proposals waiting for review; admins only, fetched once. */
+	let openSuggestions = $state(0);
 
 	interface NavLink {
 		href: string;
@@ -19,8 +22,7 @@
 	}
 
 	const navLinks: NavLink[] = [
-		{ href: '/media', label: 'Media' },
-		{ href: '/sandbox', label: 'Sandbox' },
+		{ href: '/media', label: 'Serien' },
 		{ href: '/suggestions', label: 'Vorschläge' }
 	];
 
@@ -32,6 +34,19 @@
 		return () => {
 			if (typeof unsubSystemTheme === 'function') unsubSystemTheme();
 		};
+	});
+
+	let openCountLoaded = false;
+	$effect(() => {
+		if (!$isAdmin || openCountLoaded) return;
+		openCountLoaded = true;
+		getSuggestions({ status: 'open', pageSize: 1 })
+			.then((result) => {
+				openSuggestions = result.total;
+			})
+			.catch(() => {
+				openSuggestions = 0;
+			});
 	});
 
 	function handleLogout() {
@@ -71,6 +86,11 @@
 							class:hover:bg-surface-raised={!isActive(link.href)}
 						>
 							{link.label}
+							{#if link.href === '/suggestions' && $isAdmin && openSuggestions > 0}
+								<span class="badge badge-warning badge-sm ml-1 font-mono tabular-nums">
+									{openSuggestions}
+								</span>
+							{/if}
 							{#if isActive(link.href)}
 								<span class="absolute bottom-0 left-3 right-3 h-0.5 bg-accent rounded-full"></span>
 							{/if}
@@ -95,7 +115,7 @@
 						Logout
 					</button>
 				{:else}
-					<a href="/login" class="btn btn-ghost btn-sm">Login</a>
+					<a href="/login" class="btn btn-ghost btn-sm">Anmeldung</a>
 				{/if}
 
 				<ThemePicker />
@@ -113,6 +133,11 @@
 					class:text-text-secondary={!isActive(link.href)}
 				>
 					{link.label}
+					{#if link.href === '/suggestions' && $isAdmin && openSuggestions > 0}
+						<span class="badge badge-warning badge-sm ml-1 font-mono tabular-nums">
+							{openSuggestions}
+						</span>
+					{/if}
 				</a>
 			{/each}
 		</nav>
