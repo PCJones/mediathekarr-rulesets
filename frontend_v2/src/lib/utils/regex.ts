@@ -71,6 +71,27 @@ export function extractStaticValue(pattern: string): number | null {
 }
 
 /**
+ * Whether a filter compares numbers (mirrors the API validation)
+ */
+export function requiresNumericFilterValue(filter: Pick<Filter, 'attribute' | 'type'>): boolean {
+	return filter.attribute === 'duration' || filter.type === 'GreaterThan' || filter.type === 'LessThan';
+}
+
+/**
+ * Only plain decimals, so the preview and MediathekArr (.NET) parse them identically
+ */
+export function isNumericFilterValue(value: string): boolean {
+	return /^\d+(\.\d+)?$/.test(value);
+}
+
+/**
+ * Parse an extracted season/episode value as strictly as MediathekArr (.NET int.TryParse)
+ */
+export function parseStrictInt(value: string): number | null {
+	return /^\s*[+-]?\d+\s*$/.test(value) ? parseInt(value, 10) : null;
+}
+
+/**
  * Evaluate all filters against a media item
  */
 export function evaluateFilters(

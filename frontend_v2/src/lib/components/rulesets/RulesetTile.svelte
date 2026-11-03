@@ -118,7 +118,7 @@
 					{/if}
 					<Badge variant="accent" size="sm">{strategyLabel(ruleset.matchingStrategy, true)}</Badge>
 					{#if proposals}
-						<a href={proposals.href} class="relative z-10">
+						<a href={proposals.href} class="relative z-10 inline-flex">
 							<Badge variant="info" size="sm">{proposals.label}</Badge>
 						</a>
 					{/if}
@@ -196,11 +196,11 @@
 					{/if}
 				</div>
 
-				<div class="flex items-center gap-3">
+				<div class="flex items-center gap-2">
 					{#if onRebase}
 						<button
 							type="button"
-							class="relative z-10 text-xs text-warning hover:underline"
+							class="btn btn-sm relative z-10 text-warning"
 							onclick={() => onRebase?.()}
 						>
 							Basis aktualisieren
@@ -209,7 +209,7 @@
 					{#if onDiscard}
 						<button
 							type="button"
-							class="relative z-10 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+							class="btn btn-sm relative z-10"
 							onclick={() => onDiscard?.()}
 						>
 							{discardLabel}

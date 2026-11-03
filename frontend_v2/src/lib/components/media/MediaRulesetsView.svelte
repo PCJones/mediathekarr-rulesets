@@ -22,6 +22,7 @@
 		draftChangeCounts,
 		draftStaleKeys
 	} from '$stores/suggestionDraft';
+	import { hasUnsavedEdits, resolveProposalDraft } from '$utils/draftContent';
 	import {
 		collectItems,
 		computeBundleCoverage,
@@ -88,6 +89,7 @@
 	let staleKeys = $derived($draftStaleKeys);
 	let suggestionId = $derived(draft.suggestionId);
 	let revision = $derived(draftActive ? draft.baseRevision : null);
+	let unsavedEdits = $derived(hasUnsavedEdits(draft, liveRulesets));
 
 	let showWizard = $state(false);
 	let editingRuleset = $state<Ruleset | null>(null);
@@ -258,14 +260,9 @@
 		if (media.id <= 0) return false;
 		if (suggestionsPromise) await suggestionsPromise;
 		const mine = mediaSuggestions?.mine;
-		if (!mine || !suggestionDraft.exists(suggestionDraftKey(mine.id))) return false;
-		suggestionDraft.open(suggestionDraftKey(mine.id), {
-			mediaId: media.id,
-			suggestionId: mine.id,
-			baseRevision: mine.currentRevision
-		});
-		draftActive = true;
-		return true;
+		const stored = mine ? suggestionDraft.peek(suggestionDraftKey(mine.id)) : null;
+		if (!mine || !stored || !hasUnsavedEdits(stored, liveRulesets)) return false;
+		return await openProposalDraft(mine.id, null);
 	}
 
 	async function enterDraft(): Promise<boolean> {
@@ -296,19 +293,24 @@
 			}
 
 			const key = suggestionDraftKey(id);
+			const resolution = resolveProposalDraft(
+				suggestionDraft.peek(key),
+				detail.currentRevision,
+				liveRulesets,
+				afterConflict
+			);
 			const keepLocal =
-				suggestionDraft.exists(key) &&
-				!confirm(
-					afterConflict
-						? `Jemand hat diesen Vorschlag inzwischen gespeichert (jetzt Revision ${detail.currentRevision}). Neuen Stand laden und deine Änderungen verwerfen? Abbrechen behält deine Änderungen und überschreibt den neuen Stand beim Speichern.`
-						: 'Für diesen Vorschlag gibt es lokale Änderungen. Serverstand laden und lokale Änderungen verwerfen?'
-				);
+				resolution === 'resume' ||
+				(resolution === 'conflict' &&
+					!confirm(
+						`Jemand hat diesen Vorschlag inzwischen gespeichert (jetzt Revision ${detail.currentRevision}). Neuen Stand laden und deine Änderungen verwerfen? Abbrechen behält deine Änderungen und überschreibt den neuen Stand beim Speichern.`
+					));
 
+			const rev = await getSuggestionRevision(id, detail.currentRevision);
 			if (keepLocal) {
 				suggestionDraft.open(key, { mediaId: media.id, suggestionId: id });
-				suggestionDraft.adoptBaseRevision(detail.currentRevision);
+				suggestionDraft.adoptRevision(rev);
 			} else {
-				const rev = await getSuggestionRevision(id, detail.currentRevision);
 				suggestionDraft.loadFromRevision(id, rev, { mediaId: detail.media?.id ?? media.id });
 			}
 
@@ -622,17 +624,14 @@
 	}
 
 	async function saveRevision() {
-		if (!suggestionId) return;
-		if (draft.baseRevision === null) {
-			error = 'Die Revision dieses Entwurfs ist unbekannt. Bitte den Vorschlag neu öffnen.';
-			return;
-		}
+		const baseRevision = draft.baseRevision;
+		if (!suggestionId || baseRevision === null) return;
 		isSubmitting = true;
 		error = null;
 		try {
 			rebaseNonStale();
 			const detail = await reviseSuggestion(suggestionId, {
-				revision: draft.baseRevision,
+				revision: baseRevision,
 				description: draft.description,
 				bundle: suggestionDraft.toBundle()
 			});
@@ -686,7 +685,11 @@
 	}
 
 	function discardDraft() {
-		if (!confirm('Alle gesammelten Änderungen verwerfen?')) return;
+		if (suggestionId) {
+			if (unsavedEdits && !confirm('Ungespeicherte Änderungen verwerfen?')) return;
+		} else if (!confirm('Alle gesammelten Änderungen verwerfen?')) {
+			return;
+		}
 		suggestionDraft.clear();
 		draftActive = false;
 		proposalMode = false;
@@ -935,6 +938,7 @@
 		mode={suggestionId ? 'save' : 'submit'}
 		{suggestionId}
 		{revision}
+		hasUnsavedEdits={unsavedEdits}
 		disabledReason={submitBlocked}
 		isSubmitting={isSubmitting || busy}
 		onDiscard={discardDraft}

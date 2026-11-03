@@ -17,6 +17,14 @@ import type {
 	SuggestionRevision
 } from '$types/suggestion';
 import { toBaseRuleset, toRuleset, toRulesetBody } from '$api/suggestions';
+import {
+	defaultOrder,
+	dropRef,
+	mergeChanges,
+	nextTempKey,
+	savedContent,
+	type DraftContent
+} from '$utils/draftContent';
 
 const STORAGE_PREFIX = 'mediathekarr:draft:';
 
@@ -48,7 +56,6 @@ export interface DraftInit {
 	proposedMedia?: ProposedMedia | null;
 	suggestionId?: number | null;
 	forkedFromId?: number | null;
-	baseRevision?: number | null;
 	description?: string;
 }
 
@@ -61,6 +68,8 @@ export interface SuggestionDraftState {
 	forkedFromId: number | null;
 	/** Revision of the open proposal this draft edits; the server rejects a save once it is outdated. */
 	baseRevision: number | null;
+	/** Content of `baseRevision` as stored on the server. */
+	saved: DraftContent | null;
 	description: string;
 	changes: SuggestionChange[];
 	order: string[] | null;
@@ -75,6 +84,7 @@ const emptyState: SuggestionDraftState = {
 	suggestionId: null,
 	forkedFromId: null,
 	baseRevision: null,
+	saved: null,
 	description: '',
 	changes: [],
 	order: null,
@@ -120,13 +130,6 @@ function changeForRuleset(
 	return state.changes.find((c) => c.rulesetId === rulesetId);
 }
 
-function nextTempKey(state: SuggestionDraftState): string {
-	let n = 1;
-	const used = new Set(state.changes.map((c) => c.key));
-	while (used.has(`c${n}`)) n++;
-	return `c${n}`;
-}
-
 /** Synthetic negative ids for staged creates, in change order. */
 function syntheticIds(state: SuggestionDraftState): Map<string, number> {
 	const map = new Map<string, number>();
@@ -135,15 +138,6 @@ function syntheticIds(state: SuggestionDraftState): Map<string, number> {
 		if (change.op === 'create') map.set(change.key, id--);
 	}
 	return map;
-}
-
-function defaultOrder(state: SuggestionDraftState, liveRulesets: Ruleset[]): string[] {
-	const kept = [...liveRulesets]
-		.sort((a, b) => a.priority - b.priority)
-		.filter((r) => r.id != null && changeForRuleset(state, r.id)?.op !== 'delete')
-		.map((r) => String(r.id));
-	const creates = state.changes.filter((c) => c.op === 'create').map((c) => c.key);
-	return [...kept, ...creates];
 }
 
 function effectiveList(state: SuggestionDraftState, liveRulesets: Ruleset[]): Ruleset[] {
@@ -234,17 +228,13 @@ function fromRevision(
 		suggestionId: init.suggestionId ?? null,
 		forkedFromId: init.forkedFromId ?? null,
 		baseRevision: init.suggestionId ? revision.number : null,
+		saved: init.suggestionId ? savedContent(revision) : null,
 		description: revision.description,
 		changes: revision.bundle.changes.map((c) => ({ ...c })),
 		order: revision.bundle.order,
 		coverage: revision.bundle.coverage,
 		stale: []
 	};
-}
-
-function dropRef(order: string[] | null, ref: string): string[] | null {
-	if (!order) return null;
-	return order.filter((r) => r !== ref);
 }
 
 function reinsertRef(order: string[] | null, rulesetId: number, liveRulesets: Ruleset[]): string[] | null {
@@ -280,14 +270,16 @@ function createSuggestionDraftStore() {
 
 		exists: (key: DraftKey): boolean => readDraft(key) !== null,
 
+		/** The persisted draft for `key`, without opening it. */
+		peek: (key: DraftKey): SuggestionDraftState | null => readDraft(key),
+
 		/** Load the persisted draft for `key`, or start a fresh one from `init`. */
 		open: (key: DraftKey, init: DraftInit = {}): SuggestionDraftState => {
 			const stored = readDraft(key);
 			const next: SuggestionDraftState = stored
 				? {
 						...stored,
-						...(init.suggestionId != null ? { suggestionId: init.suggestionId } : {}),
-						baseRevision: stored.baseRevision ?? init.baseRevision ?? null
+						...(init.suggestionId != null ? { suggestionId: init.suggestionId } : {})
 					}
 				: {
 						...emptyState,
@@ -296,7 +288,6 @@ function createSuggestionDraftStore() {
 						proposedMedia: init.proposedMedia ?? null,
 						suggestionId: init.suggestionId ?? null,
 						forkedFromId: init.forkedFromId ?? null,
-						baseRevision: init.baseRevision ?? null,
 						description: init.description ?? ''
 					};
 			set(next);
@@ -312,8 +303,14 @@ function createSuggestionDraftStore() {
 		},
 
 		/** Keep the local changes on top of `revision`, overwriting what was saved in between. */
-		adoptBaseRevision: (revision: number) => {
-			update((state) => commit({ ...state, baseRevision: revision }));
+		adoptRevision: (revision: SuggestionRevision) => {
+			update((state) =>
+				commit({
+					...state,
+					baseRevision: revision.number,
+					saved: savedContent(revision)
+				})
+			);
 		},
 
 		stageUpdate: (ruleset: RulesetBody | Ruleset, base: Ruleset, snapshot: ChangeSnapshot | null) => {
@@ -340,7 +337,7 @@ function createSuggestionDraftStore() {
 		): string => {
 			let key = tempKey ?? '';
 			update((state) => {
-				key = tempKey ?? nextTempKey(state);
+				key = tempKey ?? nextTempKey(state.changes);
 				const next = upsert(state, { key, op: 'create', ruleset: toRulesetBody(body), snapshot });
 				const order = next.order && !next.order.includes(key) ? [...next.order, key] : next.order;
 				return commit({ ...next, order });
@@ -447,13 +444,8 @@ function createSuggestionDraftStore() {
 		/** Merge this draft's changes into the draft at `other`, then open it. */
 		mergeInto: (other: DraftKey): SuggestionDraftState => {
 			const source = current;
-			let target = readDraft(other) ?? { ...emptyState, key: other };
-
-			for (const change of source.changes) {
-				target = upsert(target, change);
-			}
-			if (!target.description) target.description = source.description;
-			target.coverage = null;
+			const stored = readDraft(other) ?? { ...emptyState, key: other };
+			const target = { ...stored, ...mergeChanges(stored, source), coverage: null };
 
 			removeDraft(source.key);
 			set(commit(target));

@@ -3,6 +3,7 @@
 	import { rulesetStore, wizardStore } from '$stores/ruleset';
 	import { draftStore } from '$stores/draft';
 	import type { Filter, FilterAttribute, FilterType, DurationInfo } from '$types';
+	import { isNumericFilterValue, requiresNumericFilterValue } from '$lib/utils/regex';
 
 	// Get context from WizardBuilder
 	const ctx = getContext<{ durationInfo: DurationInfo | null }>('wizardCallbacks');
@@ -70,10 +71,17 @@
 		}
 	});
 
+	// Numeric value validation error
+	let numberError = $derived(
+		requiresNumericFilterValue(newFilter) && String(newFilter.value).trim() && !isNumericFilterValue(String(newFilter.value))
+			? 'Bitte eine Zahl eingeben, z. B. 30 oder 42.5'
+			: null
+	);
+
 	// Sync draft filter for real-time preview
 	$effect(() => {
 		// Only set draft if value is non-empty and valid (handle both string and number values)
-		if (String(newFilter.value).trim() && !regexError) {
+		if (String(newFilter.value).trim() && !regexError && !numberError) {
 			draftStore.setDraftFilter({ ...newFilter });
 		} else {
 			draftStore.clearFilter();
@@ -121,8 +129,9 @@
 	function addFilter() {
 		if (!String(newFilter.value).trim()) return;
 
-		// Don't allow adding invalid regex
+		// Don't allow adding invalid regex or numbers
 		if (newFilter.type === 'Regex' && regexError) return;
+		if (numberError) return;
 
 		rulesetStore.addFilter({ ...newFilter });
 
@@ -247,13 +256,15 @@
 				id="filter-value"
 				type={isNumericAttribute ? 'number' : 'text'}
 				class="input w-full"
-				class:border-error={regexError}
+				class:border-error={regexError || numberError}
 				placeholder={newFilter.type === 'Regex' ? 'z.B. S(17|18)' : getPlaceholder(newFilter.attribute)}
 				bind:value={newFilter.value}
 				min={isNumericAttribute ? '0' : undefined}
 			/>
 			{#if regexError}
 				<span class="text-xs text-error">{regexError}</span>
+			{:else if numberError}
+				<span class="text-xs text-error">{numberError}</span>
 			{:else if newFilter.type === 'Regex'}
 				<span class="text-xs text-text-tertiary">Prüft ob das Muster im Text vorkommt</span>
 			{/if}
@@ -263,7 +274,7 @@
 				<button
 					class="btn btn-primary"
 					onclick={addFilter}
-					disabled={!String(newFilter.value).trim() || !!regexError}
+					disabled={!String(newFilter.value).trim() || !!regexError || !!numberError}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
 						<path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />

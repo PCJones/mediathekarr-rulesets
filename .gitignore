@@ -46,3 +46,5 @@ api/v2/config.php
 .cache/
 
 api/v2/database/.installed
+
+.serena/

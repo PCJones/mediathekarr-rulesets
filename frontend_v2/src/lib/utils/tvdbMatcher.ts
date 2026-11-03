@@ -14,6 +14,7 @@ import {
 	extractSeasonEpisode,
 	isStaticSeasonEpisode,
 	extractStaticValue,
+	parseStrictInt,
 	testRegex
 } from './regex';
 import {
@@ -34,6 +35,12 @@ export interface TvdbMatchResult {
 		searchedValue?: string;
 	};
 	error?: string;
+}
+
+function extractionError(label: string, raw: string | null): string {
+	return raw !== null
+		? `${label} „${raw}“ ist keine Zahl – die Capture-Group sollte nur Ziffern erfassen, z. B. (\\d+)`
+		: `${label} konnte nicht extrahiert werden`;
 }
 
 /**
@@ -60,13 +67,16 @@ export function matchEpisodeByStrategy(
 	// Extract season/episode if needed
 	let seasonValue: number | null = null;
 	let episodeValue: number | null = null;
+	// Raw capture groups, kept to explain values that are not plain numbers
+	let seasonRaw: string | null = null;
+	let episodeRaw: string | null = null;
 
 	if (seasonRegex) {
 		if (isStaticSeasonEpisode(seasonRegex)) {
 			seasonValue = extractStaticValue(seasonRegex);
 		} else if (constructedTitle) {
-			const { firstGroup } = testRegex(seasonRegex, constructedTitle);
-			seasonValue = firstGroup ? parseInt(firstGroup, 10) : null;
+			seasonRaw = testRegex(seasonRegex, constructedTitle).firstGroup;
+			seasonValue = seasonRaw !== null ? parseStrictInt(seasonRaw) : null;
 		}
 	}
 
@@ -74,8 +84,8 @@ export function matchEpisodeByStrategy(
 		if (isStaticSeasonEpisode(episodeRegex)) {
 			episodeValue = extractStaticValue(episodeRegex);
 		} else if (constructedTitle) {
-			const { firstGroup } = testRegex(episodeRegex, constructedTitle);
-			episodeValue = firstGroup ? parseInt(firstGroup, 10) : null;
+			episodeRaw = testRegex(episodeRegex, constructedTitle).firstGroup;
+			episodeValue = episodeRaw !== null ? parseStrictInt(episodeRaw) : null;
 		}
 	}
 
@@ -105,8 +115,8 @@ export function matchEpisodeByStrategy(
 				return {
 					...baseResult,
 					error: seasonValue === null
-						? 'Season konnte nicht extrahiert werden'
-						: 'Episode konnte nicht extrahiert werden'
+						? extractionError('Season', seasonRaw)
+						: extractionError('Episode', episodeRaw)
 				};
 			}
 			const episode = findEpisodeBySeasonEpisode(episodes, seasonValue, episodeValue);
@@ -125,7 +135,7 @@ export function matchEpisodeByStrategy(
 			if (episodeValue === null) {
 				return {
 					...baseResult,
-					error: 'Episode konnte nicht extrahiert werden'
+					error: extractionError('Episode', episodeRaw)
 				};
 			}
 			const episode = findEpisodeByAbsolute(episodes, episodeValue);
