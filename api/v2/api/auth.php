@@ -71,18 +71,41 @@ function authenticate(): int {
     return $userId;
 }
 
-function requireAdmin(): int {
+function optionalUserId(): ?int {
+    $authHeader = getAuthHeader();
+    if (!$authHeader || !preg_match('/Bearer\s(\S+)/i', $authHeader, $matches)) {
+        return null;
+    }
+    return validateJWT($matches[1]) ?: null;
+}
+
+function currentUser(): array {
     $userId = authenticate();
 
     $db = getDatabase();
-    $stmt = $db->prepare('SELECT is_admin FROM users WHERE id = ?');
+    $stmt = $db->prepare('SELECT id, email, username, is_admin FROM users WHERE id = ?');
     $stmt->execute([$userId]);
     $user = $stmt->fetch();
 
-    if (!$user || !$user['is_admin']) {
+    if (!$user) {
+        errorResponse('Invalid or expired token', 401);
+    }
+
+    return [
+        'id' => (int)$user['id'],
+        'email' => $user['email'],
+        'username' => $user['username'],
+        'is_admin' => (bool)$user['is_admin'],
+    ];
+}
+
+function requireAdmin(): int {
+    $user = currentUser();
+
+    if (!$user['is_admin']) {
         errorResponse('Admin access required', 403);
     }
 
-    return $userId;
+    return $user['id'];
 }
 ?>

@@ -105,11 +105,4 @@ function validateRequired(array $data, array $fields): void {
         }
     }
 }
-
-function validateRegex(string $pattern, string $fieldName): void {
-    if (@preg_match("\x01" . $pattern . "\x01", '') === false) {
-        $detail = preg_replace('/^preg_match\(\): (Compilation failed: )?/', '', error_get_last()['message'] ?? 'invalid pattern');
-        errorResponse("Invalid regex in '$fieldName': $detail", 400);
-    }
-}
 ?>

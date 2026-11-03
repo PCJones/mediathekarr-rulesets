@@ -56,15 +56,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 CREATE UNIQUE INDEX idx_users_username ON users(username COLLATE NOCASE);
                 CREATE UNIQUE INDEX idx_users_github_id ON users(github_id);
 
+                CREATE TABLE login_throttle (
+                    key TEXT PRIMARY KEY,
+                    failures INTEGER NOT NULL,
+                    expires_at INTEGER NOT NULL
+                );
+
                 CREATE TABLE media (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     type TEXT NOT NULL CHECK(type IN ('movie', 'show')),
                     tmdbId INTEGER,
                     imdbId TEXT,
-                    tvdbId INTEGER,
-                    UNIQUE(name, type)
+                    tvdbId INTEGER
                 );
+                CREATE UNIQUE INDEX idx_media_show_tvdb ON media(tvdbId) WHERE type = 'show';
+                CREATE UNIQUE INDEX idx_media_movie_tmdb ON media(tmdbId) WHERE type = 'movie';
 
                 CREATE TABLE rulesets (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,20 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     FOREIGN KEY(mediaId) REFERENCES media(id) ON DELETE CASCADE
                 );
 
-                CREATE TABLE ruleset_changelog (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ruleset_id INTEGER,
-                    changed_by TEXT NOT NULL,
-                    changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    change_summary TEXT NOT NULL,
-                    suggestion_id INTEGER,
-                    applied_by TEXT,
-                    FOREIGN KEY (ruleset_id) REFERENCES rulesets(id) ON DELETE SET NULL
-                );
-
                 CREATE INDEX idx_rulesets_mediaId ON rulesets(mediaId);
                 CREATE INDEX idx_rulesets_priority ON rulesets(priority);
-                CREATE INDEX idx_ruleset_changelog_ruleset_id ON ruleset_changelog(ruleset_id);
 
                 CREATE TABLE suggestions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,

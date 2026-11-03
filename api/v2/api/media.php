@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/ruleset_validation.php';
 
 $db = getDatabase();
 $method = $_SERVER['REQUEST_METHOD'];
@@ -43,25 +44,40 @@ function handleGet(PDO $db): void {
         errorResponse('Not found', 404);
     }
 
+    $query = [];
+    parse_str($_SERVER['QUERY_STRING'] ?? '', $query);
+
+    if (!empty($query['withSuggestionCounts'])) {
+        $stmt = $db->query("
+            SELECT m.*, (SELECT COUNT(*) FROM suggestions s WHERE s.media_id = m.id AND s.status = 'open') AS open_suggestions
+            FROM media m
+            ORDER BY m.name
+        ");
+        successResponse(array_map(
+            fn($row) => formatMedia($row) + ['openSuggestions' => (int)$row['open_suggestions']],
+            $stmt->fetchAll()
+        ));
+    }
+
     $stmt = $db->query('SELECT * FROM media ORDER BY name');
     $media = $stmt->fetchAll();
     successResponse(array_map('formatMedia', $media));
 }
 
 function handlePost(PDO $db): void {
-    $userId = requireAdmin();
+    requireAdmin();
     $input = getJsonInput();
     validateRequired($input, ['name', 'type']);
-
-    if (!in_array($input['type'], ['movie', 'show'])) {
-        errorResponse('Type must be "movie" or "show"', 400);
+    validateMediaInput($input);
+    if (findExistingMediaId($db, $input) !== null) {
+        errorResponse('Dieses Medium existiert bereits', 409);
     }
 
     $stmt = $db->prepare('
         INSERT INTO media (name, type, tmdbId, imdbId, tvdbId)
         VALUES (?, ?, ?, ?, ?)
     ');
-    executeOrConflict($stmt, [
+    $stmt->execute([
         $input['name'],
         $input['type'],
         $input['tmdbId'] ?? null,
@@ -73,7 +89,7 @@ function handlePost(PDO $db): void {
 }
 
 function handlePut(PDO $db): void {
-    $userId = requireAdmin();
+    requireAdmin();
 
     $pathParts = explode('/', trim($_SERVER['PATH_INFO'] ?? '', '/'));
     $mediaId = $pathParts[0] ?? null;
@@ -84,7 +100,8 @@ function handlePut(PDO $db): void {
 
     $stmt = $db->prepare('SELECT * FROM media WHERE id = ?');
     $stmt->execute([$mediaId]);
-    if (!$stmt->fetch()) {
+    $existing = $stmt->fetch();
+    if (!$existing) {
         errorResponse('Media not found', 404);
     }
 
@@ -106,26 +123,20 @@ function handlePut(PDO $db): void {
         errorResponse('No fields to update', 400);
     }
 
-    if (isset($input['type']) && !in_array($input['type'], ['movie', 'show'])) {
-        errorResponse('Type must be "movie" or "show"', 400);
+    if (array_intersect(['type', 'tvdbId', 'tmdbId', 'imdbId'], array_keys($input))) {
+        $merged = array_merge($existing, array_intersect_key($input, array_flip($allowedFields)));
+        validateMediaInput($merged);
+        $duplicateId = findExistingMediaId($db, $merged);
+        if ($duplicateId !== null && $duplicateId !== (int)$mediaId) {
+            errorResponse('Dieses Medium existiert bereits', 409);
+        }
     }
 
     $params[] = $mediaId;
     $sql = 'UPDATE media SET ' . implode(', ', $updateFields) . ' WHERE id = ?';
-    executeOrConflict($db->prepare($sql), $params);
+    $db->prepare($sql)->execute($params);
 
     successResponse(null, 'Media updated');
-}
-
-function executeOrConflict(PDOStatement $stmt, array $params): void {
-    try {
-        $stmt->execute($params);
-    } catch (PDOException $e) {
-        if (str_contains($e->getMessage(), 'UNIQUE constraint failed')) {
-            errorResponse('Media with this name and type already exists', 409);
-        }
-        throw $e;
-    }
 }
 
 function handleDelete(PDO $db): void {
@@ -145,23 +156,17 @@ function handleDelete(PDO $db): void {
     }
 
     $db->beginTransaction();
-    $stmt = $db->prepare('SELECT id, topic FROM rulesets WHERE mediaId = ?');
-    $stmt->execute([$mediaId]);
-    foreach ($stmt->fetchAll() as $ruleset) {
-        $db->prepare('INSERT INTO ruleset_changelog (ruleset_id, changed_by, change_summary) VALUES (NULL, ?, ?)')
-            ->execute([currentUserEmail($db, $userId), 'Ruleset gelöscht (mit Media): ' . $ruleset['topic'] . ' (#' . $ruleset['id'] . ')']);
-    }
+    $db->prepare("
+        UPDATE suggestions
+        SET status = 'withdrawn', resolved_by = ?, resolved_at = CURRENT_TIMESTAMP,
+            resolution_comment = 'Medium wurde gelöscht', updated_at = CURRENT_TIMESTAMP
+        WHERE media_id = ? AND status = 'open'
+    ")->execute([$userId, $mediaId]);
     $db->prepare('DELETE FROM rulesets WHERE mediaId = ?')->execute([$mediaId]);
     $db->prepare('DELETE FROM media WHERE id = ?')->execute([$mediaId]);
     $db->commit();
 
     successResponse(null, 'Media deleted');
-}
-
-function currentUserEmail(PDO $db, int $userId): string {
-    $stmt = $db->prepare('SELECT email FROM users WHERE id = ?');
-    $stmt->execute([$userId]);
-    return $stmt->fetch()['email'] ?? 'unknown';
 }
 
 function formatMedia(array $media): array {
