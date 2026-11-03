@@ -8,7 +8,7 @@
 define('JWT_SECRET', 'replace-with-your-own-NqlxRWA0A2FeSVMw');
 
 $allowedOrigins = [
-    'https://mediathekarr-rulesets.vercel.app',
+    'https://mediathekarr.vercel.app',
     'http://localhost:5173',
 ];
 
