@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { rulesetStore } from '$stores/ruleset';
 	import { previewStore } from '$stores/preview';
-	import { queryByTopic } from '$api/mediathekview';
-	import type { MediathekItem } from '$types';
 	import { normalizeTopic } from '$lib/utils/topic';
 
 	// Local state for UI
@@ -16,12 +14,6 @@
 	let totalFetched = $derived($previewStore.totalFetched);
 	let filteredCount = $derived($previewStore.filteredCount);
 	let hasMoreResults = $derived($previewStore.hasMoreResults);
-
-	// Debounce timer
-	let previewTimeout: ReturnType<typeof setTimeout>;
-
-	// Track previous topic for change detection
-	let previousTopic = $state<string | undefined>(undefined);
 
 	// Get current topic string from store
 	let topicString = $derived($rulesetStore.topic);
@@ -79,62 +71,6 @@
 			addTopic();
 		}
 	}
-
-	// Check if item should be filtered (Audiodeskription or Gebärdensprache)
-	function shouldFilter(item: MediathekItem): boolean {
-		const title = item.title.toLowerCase();
-		// Match with or without parentheses, case-insensitive
-		return title.includes('audiodeskription') || title.includes('gebärdensprache');
-	}
-
-	// Fetch preview with debounce
-	function fetchPreview(topicStr: string) {
-		if (previewTimeout) {
-			clearTimeout(previewTimeout);
-		}
-
-		if (!topicStr) {
-			previewStore.clear();
-			return;
-		}
-
-		previewTimeout = setTimeout(async () => {
-			previewStore.setLoading(true);
-			try {
-				// Fetch up to 1000 results per topic
-				const results = await queryByTopic(topicStr, { maxPerTopic: 1000 });
-				const totalFetchedCount = results.length;
-
-				// Check if we hit the 1000 limit (might be more results)
-				const topicCount = topicStr.split('|').filter(t => t.trim()).length;
-				const moreResults = results.length >= topicCount * 1000;
-
-				// Filter out Audiodeskription and Gebärdensprache
-				const filtered = results.filter(item => !shouldFilter(item));
-				const filteredOutCount = totalFetchedCount - filtered.length;
-
-				previewStore.setResults({
-					items: filtered,
-					totalFetched: totalFetchedCount,
-					filteredCount: filteredOutCount,
-					hasMoreResults: moreResults
-				});
-			} catch (e) {
-				previewStore.setError(e instanceof Error ? e.message : 'Fehler beim Laden der Vorschau');
-			}
-		}, 500);
-	}
-
-	// Reactive preview fetch - triggers on topic changes
-	$effect(() => {
-		if (topicString && topicString !== previousTopic) {
-			previousTopic = topicString;
-			fetchPreview(topicString);
-		} else if (!topicString && previousTopic) {
-			previousTopic = undefined;
-			previewStore.clear();
-		}
-	});
 
 	// Formatting helpers for table display
 	function formatDate(timestamp: number): string {

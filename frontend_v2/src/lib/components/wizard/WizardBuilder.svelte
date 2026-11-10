@@ -8,6 +8,7 @@
 	import { getRulesetsForMedia } from '$api/rulesets';
 	import { toBaseRuleset, toRulesetBody } from '$api/suggestions';
 	import { getChangeSnapshot, fetchItemsForTopics, collectItems } from '$utils/coverage';
+	import { createPreviewLoader } from '$utils/previewLoader';
 	import WizardBreadcrumb from './WizardBreadcrumb.svelte';
 	import LivePreviewPanel from './LivePreviewPanel.svelte';
 	import TopicEditor from './steps/TopicEditor.svelte';
@@ -18,7 +19,7 @@
 	import TestAndSave from './steps/TestAndSave.svelte';
 	import Button from '$components/ui/Button.svelte';
 	import Alert from '$components/ui/Alert.svelte';
-	import type { Ruleset, Media, DurationInfo, TvdbShowData } from '$types';
+	import { MATCHING_STRATEGIES, type Ruleset, type Media, type DurationInfo, type TvdbShowData } from '$types';
 	import type { ChangeSnapshot } from '$types/suggestion';
 
 	export type WizardMode = 'direct' | 'draft' | 'view';
@@ -132,6 +133,7 @@
 			if (existingRuleset) {
 				rulesetStore.loadRuleset(existingRuleset);
 				wizardStore.startEditing(existingRuleset.id!);
+				wizardStore.goToStep(initialEditStep(existingRuleset));
 			} else {
 				rulesetStore.reset();
 				rulesetStore.initWithMedia(media);
@@ -151,6 +153,13 @@
 			// Set current ruleset info so simulator knows which one is being edited
 			coverageStore.setCurrentRuleset(existingRuleset?.id);
 		});
+	});
+
+	// Preview items load here, not in a step, so opening the wizard on a later step still fills them.
+	const previewLoader = createPreviewLoader();
+	$effect(() => {
+		const topic = $rulesetStore.topic;
+		untrack(() => previewLoader.load(topic));
 	});
 
 	// Reactively sync current ruleset data into the coverage simulator
@@ -179,8 +188,23 @@
 
 	// Cleanup coverage store on unmount
 	onDestroy(() => {
+		previewLoader.destroy();
 		coverageStore.clear();
 	});
+
+	/** The step that defines how this ruleset extracts episodes, or the first invalid step before it. */
+	function initialEditStep(ruleset: Ruleset): number {
+		const allSteps = get(wizardSteps);
+		const info = MATCHING_STRATEGIES.find((s) => s.value === ruleset.matchingStrategy);
+		const targetId = info?.requiresTitleRules
+			? 'titleRules'
+			: info?.requiresSeasonRegex || info?.requiresEpisodeRegex
+				? 'seasonEpisode'
+				: null;
+		const target = Math.max(0, targetId ? allSteps.findIndex((s) => s.id === targetId) : 0);
+		const firstInvalid = allSteps.findIndex((s) => !(s.isValid || s.isOptional));
+		return firstInvalid === -1 ? target : Math.min(target, firstInvalid);
+	}
 
 	async function loadAllRulesets() {
 		try {
@@ -204,6 +228,11 @@
 	let canGoNext = $derived(steps[currentStep]?.isValid || steps[currentStep]?.isOptional);
 	let canGoPrev = $derived(currentStep > 0);
 	let isLastStep = $derived(currentStep === steps.length - 1);
+	/** Every step up to and including the first invalid one can be opened directly. */
+	let maxReachable = $derived.by(() => {
+		const firstInvalid = steps.findIndex((s) => !(s.isValid || s.isOptional));
+		return Math.max(firstInvalid === -1 ? steps.length - 1 : firstInvalid, currentStep);
+	});
 
 	const skippableStepIds = ['titleRules', 'seasonEpisode'];
 
@@ -254,7 +283,7 @@
 	}
 
 	function handleStepClick(index: number) {
-		if (index <= currentStep || (index === currentStep + 1 && canGoNext)) {
+		if (index <= maxReachable) {
 			wizardStore.goToStep(index);
 			scrollToStepper();
 		}
@@ -276,7 +305,7 @@
 
 	<!-- Breadcrumb navigation -->
 	<div bind:this={stepperElement}>
-		<WizardBreadcrumb {steps} {currentStep} onStepClick={handleStepClick} />
+		<WizardBreadcrumb {steps} {currentStep} {maxReachable} onStepClick={handleStepClick} />
 	</div>
 
 	<!-- Strategy step warnings -->

@@ -5,10 +5,11 @@
 	interface Props {
 		steps: WizardStep[];
 		currentStep: number;
+		maxReachable?: number;
 		onStepClick: (index: number) => void;
 	}
 
-	let { steps, currentStep, onStepClick }: Props = $props();
+	let { steps, currentStep, maxReachable, onStepClick }: Props = $props();
 </script>
 
-<Breadcrumb {steps} {currentStep} {onStepClick} />
+<Breadcrumb {steps} {currentStep} {maxReachable} {onStepClick} />

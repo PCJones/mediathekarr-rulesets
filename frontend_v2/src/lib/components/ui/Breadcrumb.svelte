@@ -8,10 +8,12 @@
 	interface Props {
 		steps: BreadcrumbStep[];
 		currentStep: number;
+		/** Highest clickable step; defaults to the next one. */
+		maxReachable?: number;
 		onStepClick: (index: number) => void;
 	}
 
-	let { steps, currentStep, onStepClick }: Props = $props();
+	let { steps, currentStep, maxReachable, onStepClick }: Props = $props();
 
 	function getStepStatus(index: number): 'completed' | 'current' | 'upcoming' {
 		if (index < currentStep) return 'completed';
@@ -20,7 +22,7 @@
 	}
 
 	function isClickable(index: number): boolean {
-		return index <= currentStep + 1;
+		return index <= (maxReachable ?? currentStep + 1);
 	}
 </script>
 
