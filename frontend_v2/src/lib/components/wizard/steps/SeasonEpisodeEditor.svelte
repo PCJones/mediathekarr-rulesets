@@ -18,7 +18,7 @@
 	];
 
 	const episodePatterns = [
-		{ name: '(S##/E##)', pattern: '(?<=\\bS\\d{2,4}\\s*/E)(\\d{2,4})(?=\\))', description: 'Aus Format (S19/E03)' },
+		{ name: '(S##/E##)', pattern: '\\bS\\d{2,4}\\s*/E(\\d{2,4})\\)', description: 'Aus Format (S19/E03)' },
 		{ name: 'Folge X', pattern: '(?<=Folge\\s)(\\d{1,4})', description: 'Aus "Folge 5"' },
 		{ name: 'Episode (XXX)', pattern: '\\((\\d+)\\)', description: 'Nummer in Klammern' },
 		{ name: 'S##E##', pattern: '(?<=E)(\\d{2})', description: 'Aus Format S01E05' }
