@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { strategyLabel } from '$types/ruleset';
-	import type { SuggestionChange } from '$types/suggestion';
+	import type { FailStage, SuggestionChange } from '$types/suggestion';
 	import Badge from '$components/ui/Badge.svelte';
 	import Delta from './Delta.svelte';
 	import OpBadge from './OpBadge.svelte';
@@ -26,7 +26,7 @@
 		staleAction
 	}: Props = $props();
 
-	const failLabels: Record<string, string> = { title: 'Titel', tvdb: 'TVDB' };
+	const failLabels: Record<FailStage, string> = { title: 'Titel', tvdb: 'TVDB' };
 
 	let body = $derived(change.ruleset ?? change.base?.ruleset ?? null);
 	let topic = $derived(body?.topic ?? '–');
@@ -126,7 +126,7 @@
 									<span class="inline-flex items-center gap-2">
 										{sample.episode ?? '–'}
 										{#if sample.fail}
-											<Badge variant="error" size="sm">{failLabels[sample.fail] ?? sample.fail}</Badge>
+											<Badge variant="error" size="sm">{failLabels[sample.fail]}</Badge>
 										{/if}
 									</span>
 								</td>

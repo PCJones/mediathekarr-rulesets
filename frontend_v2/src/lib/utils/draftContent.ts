@@ -35,6 +35,21 @@ export function dropRef(order: string[] | null, ref: string): string[] | null {
 	return order ? order.filter((r) => r !== ref) : null;
 }
 
+/** Put a live ruleset back into `order` in front of the next live ruleset that follows it. */
+export function reinsertRef(
+	order: string[] | null,
+	rulesetId: number,
+	liveRulesets: Ruleset[]
+): string[] | null {
+	const ref = String(rulesetId);
+	if (!order || order.includes(ref)) return order;
+	const live = [...liveRulesets].sort((a, b) => a.priority - b.priority).map((r) => String(r.id));
+	const following = live.slice(live.indexOf(ref) + 1);
+	const index = order.findIndex((r) => following.includes(r));
+	if (index < 0) return [...order, ref];
+	return [...order.slice(0, index), ref, ...order.slice(index)];
+}
+
 /** Live order without deleted rulesets, staged creates appended. */
 export function defaultOrder(content: Pick<DraftContent, 'changes'>, liveRulesets: Ruleset[]): string[] {
 	const deleted = new Set(
@@ -103,7 +118,11 @@ export function resolveProposalDraft(
 }
 
 /** Add `source` changes to `target`; creates get fresh temp keys, ruleset changes replace target's. */
-export function mergeChanges(target: DraftContent, source: DraftContent): DraftContent {
+export function mergeChanges(
+	target: DraftContent,
+	source: DraftContent,
+	liveRulesets: Ruleset[]
+): DraftContent {
 	const changes = [...target.changes];
 	let order = target.order;
 
@@ -115,12 +134,17 @@ export function mergeChanges(target: DraftContent, source: DraftContent): DraftC
 			continue;
 		}
 		const index = changes.findIndex((c) => c.rulesetId === change.rulesetId);
+		const replacedDelete = index >= 0 && changes[index].op === 'delete';
 		if (index >= 0) {
 			changes[index] = { ...change, key: changes[index].key };
 		} else {
 			changes.push(change);
 		}
-		if (change.op === 'delete') order = dropRef(order, String(change.rulesetId));
+		if (change.op === 'delete') {
+			order = dropRef(order, String(change.rulesetId));
+		} else if (replacedDelete && change.rulesetId != null) {
+			order = reinsertRef(order, change.rulesetId, liveRulesets);
+		}
 	}
 
 	return {

@@ -11,19 +11,73 @@ import type {
 	SeasonEpisodeExtraction
 } from '$types';
 
+const LOOKBEHIND_ERROR =
+	'Ein Lookbehind „(?<=…)“ darf keine beliebig lange Wiederholung wie * oder + enthalten. ' +
+	'Tipp: Lookbehind weglassen und den gewünschten Teil in Klammern setzen, z. B. „Tatort:\\s*(.+)“ statt „(?<=Tatort:\\s*).+“.';
+
+// Same wording as the API (ruleset_validation.php)
+const REGEX_ERROR_HINTS: [RegExp, string][] = [
+	[/Unterminated group/, 'Es fehlt eine schließende Klammer „)“.'],
+	[/Unmatched '\)'/, 'Es gibt eine schließende Klammer „)“ zu viel.'],
+	[/Unterminated character class/, 'Es fehlt eine schließende eckige Klammer „]“.'],
+	[/Nothing to repeat/, 'Ein Wiederholungszeichen (*, +, ? oder {…}) steht an einer Stelle, an der nichts wiederholt werden kann.'],
+	[/\\ at end of pattern/, 'Das Muster endet mit einem einzelnen Backslash „\\“.'],
+	[/Range out of order/, 'Ein Bereich in eckigen Klammern ist verdreht, z. B. „[z-a]“ statt „[a-z]“.'],
+	[/numbers out of order/, 'In „{min,max}“ ist die erste Zahl größer als die zweite.']
+];
+
 /**
- * Validate a regex pattern
+ * Whether a lookbehind contains an unbounded quantifier (*, +, {n,}).
+ * JS and .NET accept this, but the API (PCRE) rejects it.
+ */
+export function hasUnboundedLookbehind(pattern: string): boolean {
+	for (let i = 0; i < pattern.length; i++) {
+		if (pattern[i] === '\\') {
+			i++;
+			continue;
+		}
+		if (!pattern.startsWith('(?<=', i) && !pattern.startsWith('(?<!', i)) continue;
+
+		let depth = 1;
+		let inClass = false;
+		for (let j = i + 4; j < pattern.length && depth > 0; j++) {
+			const c = pattern[j];
+			if (c === '\\') {
+				j++;
+			} else if (inClass) {
+				if (c === ']') inClass = false;
+			} else if (c === '[') {
+				inClass = true;
+			} else if (c === '(') {
+				depth++;
+			} else if (c === ')') {
+				depth--;
+			} else if (c === '*' || c === '+' || (c === '{' && /^\{\d*,\}/.test(pattern.slice(j)))) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+/**
+ * Validate a regex pattern, with user-friendly German error messages
  */
 export function validateRegex(pattern: string): { valid: boolean; error?: string } {
 	try {
 		new RegExp(pattern);
-		return { valid: true };
 	} catch (e) {
+		const detail = (e instanceof Error ? e.message : '').replace(/^Invalid regular expression: \/.*\/[a-z]*: /s, '');
+		const hint = REGEX_ERROR_HINTS.find(([match]) => match.test(detail));
 		return {
 			valid: false,
-			error: e instanceof Error ? e.message : 'Ungültiges Regex-Muster'
+			error: hint ? hint[1] : `Das Muster ist kein gültiger regulärer Ausdruck (${detail || 'unbekannter Fehler'}).`
 		};
 	}
+	if (hasUnboundedLookbehind(pattern)) {
+		return { valid: false, error: LOOKBEHIND_ERROR };
+	}
+	return { valid: true };
 }
 
 /**
@@ -298,7 +352,7 @@ export function buildTitleFromRules(
 
 	return {
 		steps,
-		finalTitle: failed ? null : runningTitle.trim()
+		finalTitle: failed ? null : runningTitle
 	};
 }
 

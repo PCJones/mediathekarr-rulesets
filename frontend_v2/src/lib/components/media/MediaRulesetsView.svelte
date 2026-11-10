@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { createRuleset, updateRuleset, deleteRuleset, reorderRulesets } from '$api/rulesets';
@@ -22,7 +22,8 @@
 		draftChangeCounts,
 		draftStaleKeys
 	} from '$stores/suggestionDraft';
-	import { hasUnsavedEdits, resolveProposalDraft } from '$utils/draftContent';
+	import { hasUnsavedEdits, nextTempKey, resolveProposalDraft } from '$utils/draftContent';
+	import { NEW_RULESET_SENTINEL_ID } from '$stores/coverage';
 	import {
 		collectItems,
 		computeBundleCoverage,
@@ -83,12 +84,12 @@
 	let error = $state<string | null>(null);
 	let busy = $state(false);
 
-	let draftActive = $state(false);
 	let draft = $derived($suggestionDraft);
+	let draftActive = $derived(draft.key !== '');
 	let counts = $derived($draftChangeCounts);
 	let staleKeys = $derived($draftStaleKeys);
 	let suggestionId = $derived(draft.suggestionId);
-	let revision = $derived(draftActive ? draft.baseRevision : null);
+	let revision = $derived(draft.baseRevision);
 	let unsavedEdits = $derived(hasUnsavedEdits(draft, liveRulesets));
 
 	let showWizard = $state(false);
@@ -112,8 +113,8 @@
 	let sortedLive = $derived([...liveRulesets].sort((a, b) => a.priority - b.priority));
 
 	let effective = $derived.by(() => {
-		const d = draft;
-		if (!draftActive || d.key === '') return sortedLive;
+		void draft;
+		if (!draftActive) return sortedLive;
 		return suggestionDraft.effectiveRulesets(liveRulesets);
 	});
 
@@ -164,9 +165,12 @@
 		return list;
 	});
 
+	/** Open proposals other than the one being edited. */
+	let otherOpen = $derived((mediaSuggestions?.open ?? []).filter((s) => s.id !== suggestionId));
+
 	let touchedBy = $derived.by(() => {
 		const map = new Map<number, number[]>();
-		for (const s of mediaSuggestions?.open ?? []) {
+		for (const s of otherOpen) {
 			for (const id of s.touchedRulesetIds ?? []) {
 				map.set(id, [...(map.get(id) ?? []), s.id]);
 			}
@@ -190,7 +194,7 @@
 
 	// ─── Init & deep links ───────────────────────────────────────
 
-	let initedFor = $state<string | null>(null);
+	let initedFor: string | null = null;
 
 	$effect(() => {
 		const key = `${media.id}:${baseKey}`;
@@ -199,6 +203,8 @@
 		untrack(() => init());
 	});
 
+	onDestroy(() => suggestionDraft.close());
+
 	async function init() {
 		showWizard = false;
 		editingRuleset = null;
@@ -206,7 +212,7 @@
 		editingChangeKey = null;
 		rebaseFrom = null;
 		viewDetail = null;
-		draftActive = false;
+		suggestionDraft.close();
 		proposalMode = false;
 		error = null;
 
@@ -231,18 +237,13 @@
 			await openProposalDraft(Number(draftParam.slice('suggestion:'.length)), changeParam);
 		} else if (proposedMedia) {
 			suggestionDraft.open(baseKey, { proposedMedia });
-			draftActive = true;
-		} else if (usesDraft && suggestionDraft.exists(baseKey)) {
-			suggestionDraft.open(baseKey, { mediaId: media.id });
-			draftActive = true;
-		} else if (usesDraft && (await resumeOwnProposalDraft())) {
-			// resumed below
-		} else if (draftParam === '1' && usesDraft) {
-			await enterDraft();
+		} else if (usesDraft) {
+			await resumeDraft();
+			if (!draftActive && draftParam === '1') await enterDraft();
 		}
 
 		if (!showWizard && role !== 'guest' && liveRulesets.length === 0 && draft.changes.length === 0) {
-			if (usesDraft) await enterDraft();
+			if (usesDraft && !(await enterDraft())) return;
 			startAddNew();
 		}
 	}
@@ -255,14 +256,19 @@
 		}
 	}
 
-	/** Re-open a stored draft that belongs to the user's own open proposal. */
-	async function resumeOwnProposalDraft(): Promise<boolean> {
-		if (media.id <= 0) return false;
+	/** Local edits for a media with an own open proposal always go through that proposal. */
+	async function resumeDraft() {
+		const hasMediaDraft = suggestionDraft.exists(baseKey);
 		if (suggestionsPromise) await suggestionsPromise;
 		const mine = mediaSuggestions?.mine;
-		const stored = mine ? suggestionDraft.peek(suggestionDraftKey(mine.id)) : null;
-		if (!mine || !stored || !hasUnsavedEdits(stored, liveRulesets)) return false;
-		return await openProposalDraft(mine.id, null);
+		if (!mine) {
+			if (hasMediaDraft) suggestionDraft.open(baseKey, { mediaId: media.id });
+			return;
+		}
+		const stored = suggestionDraft.peek(suggestionDraftKey(mine.id));
+		if (hasMediaDraft || (stored && hasUnsavedEdits(stored, liveRulesets))) {
+			await openProposalDraft(mine.id, null);
+		}
 	}
 
 	async function enterDraft(): Promise<boolean> {
@@ -271,7 +277,6 @@
 		const mine = mediaSuggestions?.mine;
 		if (mine && !proposedMedia) return await openProposalDraft(mine.id, null);
 		suggestionDraft.open(baseKey, { mediaId: media.id > 0 ? media.id : null, proposedMedia });
-		draftActive = true;
 		return true;
 	}
 
@@ -317,11 +322,11 @@
 			const localKey = mediaDraftKey(media.id);
 			if (media.id > 0 && suggestionDraft.exists(localKey)) {
 				const merge = confirm(
-					'Du hast lokale Änderungen für diese Serie. In den Vorschlag übernehmen? Abbrechen verwirft sie.'
+					`Du hast lokale Änderungen für ${forThisMedia}. In den Vorschlag übernehmen? Abbrechen verwirft sie.`
 				);
 				suggestionDraft.open(localKey);
 				if (merge) {
-					suggestionDraft.mergeInto(key);
+					suggestionDraft.mergeInto(key, liveRulesets);
 				} else {
 					suggestionDraft.clear();
 					suggestionDraft.open(key);
@@ -329,7 +334,6 @@
 			}
 
 			suggestionDraft.markStale(detail.stale ?? []);
-			draftActive = true;
 			proposalMode = true;
 			if (changeKey) openChange(changeKey, (detail.stale ?? []).some((s) => s.key === changeKey));
 			return true;
@@ -486,9 +490,37 @@
 
 	// ─── Ordering ────────────────────────────────────────────────
 
-	function refFor(ruleset: Ruleset): string | null {
-		if (ruleset.id == null) return null;
-		return ruleset.id < 0 ? (tempKeys.get(ruleset.id) ?? null) : String(ruleset.id);
+	function refFor(id: number | undefined): string | null {
+		if (id == null) return null;
+		return id < 0 ? (tempKeys.get(id) ?? null) : String(id);
+	}
+
+	function effectiveRefs(): string[] {
+		return effective.map((r) => refFor(r.id)).filter((r): r is string => r !== null);
+	}
+
+	/** The wizard's simulator order as bundle refs, or undefined when it kept the current order. */
+	function wizardOrder(ids: number[], newKey: string | null): string[] | undefined {
+		const current = effectiveRefs();
+		if (newKey && !current.includes(newKey)) current.push(newKey);
+		const known = new Set(current);
+		const refs = ids
+			.map((id) => (id === NEW_RULESET_SENTINEL_ID ? newKey : refFor(id)))
+			.filter((r): r is string => r !== null && known.has(r));
+		const unchanged = refs.length === current.length && refs.every((r, i) => r === current[i]);
+		return unchanged ? undefined : refs;
+	}
+
+	/** The wizard's simulator order as live ids, or undefined when it kept the live order. */
+	function directOrder(ids: number[], savedId: number): number[] | undefined {
+		const current = sortedLive.map((r) => r.id).filter((id): id is number => id != null);
+		if (!current.includes(savedId)) current.push(savedId);
+		const known = new Set(current);
+		const order = ids
+			.map((id) => (id === NEW_RULESET_SENTINEL_ID ? savedId : id))
+			.filter((id) => known.has(id));
+		const unchanged = order.length === current.length && order.every((id, i) => id === current[i]);
+		return unchanged ? undefined : order;
 	}
 
 	async function move(index: number, delta: -1 | 1) {
@@ -510,36 +542,48 @@
 		}
 
 		if (!(await enterDraft())) return;
-		const refs = effective.map(refFor).filter((r): r is string => r !== null);
+		const refs = effectiveRefs();
 		[refs[index], refs[target]] = [refs[target], refs[index]];
 		suggestionDraft.setOrder(refs);
 	}
 
 	// ─── Wizard save ─────────────────────────────────────────────
 
-	async function handleSave(data: Omit<Ruleset, 'id'>, snapshot: ChangeSnapshot | null) {
+	async function handleSave(
+		data: Omit<Ruleset, 'id'>,
+		snapshot: ChangeSnapshot | null,
+		simulatorOrder: number[]
+	) {
 		error = null;
 
 		if (!usesDraft) {
+			let saved: Ruleset;
 			try {
-				if (editingRuleset?.id) {
-					await updateRuleset(editingRuleset.id, data);
-				} else {
-					await createRuleset({ ...data, mediaId: media.id });
-				}
-				await onReload?.();
-				closeWizard();
+				saved = editingRuleset?.id
+					? await updateRuleset(editingRuleset.id, data)
+					: await createRuleset({ ...data, mediaId: media.id });
 			} catch (e) {
 				error = e instanceof Error ? e.message : 'Fehler beim Speichern';
 				throw e;
 			}
+			const order = saved.id != null ? directOrder(simulatorOrder, saved.id) : undefined;
+			if (order) {
+				try {
+					await reorderRulesets(order.map((id, priority) => ({ id, priority })));
+				} catch (e) {
+					error = `Ruleset gespeichert, Reihenfolge nicht: ${e instanceof Error ? e.message : 'Fehler beim Sortieren'}`;
+				}
+			}
+			closeWizard();
+			await onReload?.();
 			return;
 		}
 
 		if (editingBase) {
-			suggestionDraft.stageUpdate(data, editingBase, snapshot);
+			suggestionDraft.stageUpdate(data, editingBase, snapshot, wizardOrder(simulatorOrder, null));
 		} else {
-			suggestionDraft.stageCreate(data, snapshot, editingChangeKey ?? undefined);
+			const key = editingChangeKey ?? nextTempKey(draft.changes);
+			suggestionDraft.stageCreate(data, snapshot, key, wizardOrder(simulatorOrder, key));
 		}
 		closeWizard();
 	}
@@ -555,7 +599,7 @@
 
 	function cancelWizard() {
 		if (proposedMedia && draft.changes.length === 0) {
-			if (!confirm('Vorschlag verwerfen und zurück zur Serienliste?')) return;
+			if (!confirm('Vorschlag verwerfen und zurück zur Übersicht?')) return;
 			suggestionDraft.clear();
 			goto('/media');
 			return;
@@ -571,7 +615,11 @@
 
 	let bundleSignature = $derived(
 		draftActive
-			? JSON.stringify([draft.changes.map((c) => [c.key, c.op, c.ruleset, c.rulesetId]), draft.order])
+			? JSON.stringify([
+					draft.key,
+					draft.changes.map((c) => [c.key, c.op, c.ruleset, c.rulesetId]),
+					draft.order
+				])
 			: ''
 	);
 
@@ -596,7 +644,7 @@
 				computeBundleCoverage(draft.changes, itemsByTopic, liveRulesets, effective, tvdbEpisodes)
 			);
 		} catch {
-			suggestionDraft.setCoverage(null);
+			if (signature === bundleSignature) suggestionDraft.setCoverage(null);
 		} finally {
 			coverageLoading = false;
 		}
@@ -636,7 +684,6 @@
 				bundle: suggestionDraft.toBundle()
 			});
 			suggestionDraft.clear();
-			draftActive = false;
 			await goto(`/suggestions/${detail.id}`);
 		} catch (e) {
 			if (isRevisionChangedError(e)) {
@@ -663,7 +710,6 @@
 					: { mediaId: media.id, description, bundle, forkedFromId }
 			);
 			suggestionDraft.clear();
-			draftActive = false;
 			submitOpen = false;
 			await goto(`/suggestions/${detail.id}`);
 		} catch (e) {
@@ -691,7 +737,6 @@
 			return;
 		}
 		suggestionDraft.clear();
-		draftActive = false;
 		proposalMode = false;
 		if (proposedMedia) goto('/media');
 	}
@@ -699,8 +744,10 @@
 	// ─── Display helpers ─────────────────────────────────────────
 
 	let mine = $derived<SuggestionSummary | null>(mediaSuggestions?.mine ?? null);
-	let openCount = $derived(mediaSuggestions?.open.length ?? 0);
+	let openCount = $derived(otherOpen.length);
 	let typeLabel = $derived(media.type === 'show' ? 'Serie' : 'Film');
+	let forThisMedia = $derived(media.type === 'show' ? 'diese Serie' : 'diesen Film');
+	let thisMediaCapital = $derived(media.type === 'show' ? 'Diese Serie' : 'Dieser Film');
 	let wizardMode = $derived<'direct' | 'draft' | 'view'>(
 		viewDetail ? 'view' : usesDraft ? 'draft' : 'direct'
 	);
@@ -752,7 +799,7 @@
 				{#if role === 'guest'}
 					<a href="/login" class="btn btn-ghost">Anmelden, um Änderungen vorzuschlagen</a>
 				{:else}
-					<Button variant="primary" onclick={async () => { if (usesDraft) await enterDraft(); startAddNew(); }}>
+					<Button variant="primary" onclick={async () => { if (usesDraft && !(await enterDraft())) return; startAddNew(); }}>
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
 						</svg>
@@ -776,7 +823,7 @@
 	{#if proposedMedia}
 		<Alert variant="info">
 			<span>
-				Diese Serie existiert noch nicht und wird zusammen mit dem Vorschlag angelegt.
+				{thisMediaCapital} existiert noch nicht und wird zusammen mit dem Vorschlag angelegt.
 				<span class="font-mono tabular-nums text-xs">
 					{proposedMedia.tvdbId ? `TVDB ${proposedMedia.tvdbId}` : ''}
 					{proposedMedia.tmdbId ? ` · TMDB ${proposedMedia.tmdbId}` : ''}
@@ -862,7 +909,6 @@
 					: undefined}
 				onSave={handleSave}
 				onCancel={cancelWizard}
-				onReorder={(order) => suggestionDraft.setOrder(order)}
 				canCancel={effective.length > 0 || draft.changes.length > 0 || proposedMedia !== null}
 			/>
 		</div>

@@ -55,6 +55,10 @@ export async function searchShow(title: string): Promise<ShowSearchResult | null
 	return result;
 }
 
+export const TVDB_UNAVAILABLE_MESSAGE =
+	'Die TVDB-Daten für diese Serie konnten nicht geladen werden. Die Vorschau zeigt deshalb keinen Episoden-Abgleich, ' +
+	'und es wird kein Dauer-Filter vorgeschlagen. Bitte die Seite später neu laden.';
+
 /**
  * Get show data including episodes by TVDB ID
  */

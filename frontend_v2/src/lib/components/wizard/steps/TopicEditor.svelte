@@ -3,6 +3,7 @@
 	import { previewStore } from '$stores/preview';
 	import { queryByTopic } from '$api/mediathekview';
 	import type { MediathekItem } from '$types';
+	import { normalizeTopic } from '$lib/utils/topic';
 
 	// Local state for UI
 	let inputValue = $state('');
@@ -41,7 +42,7 @@
 
 	// Add a topic from input
 	function addTopic() {
-		const value = inputValue.trim();
+		const value = normalizeTopic(inputValue);
 		if (!value) return;
 
 		// Don't add duplicates

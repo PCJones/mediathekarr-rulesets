@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { getMedia } from '$api/media';
 	import { getRulesetsForMedia } from '$api/rulesets';
-	import { getShowData, calculateDurationInfo } from '$api/tvdb';
+	import { getShowData, calculateDurationInfo, TVDB_UNAVAILABLE_MESSAGE } from '$api/tvdb';
 	import type { Media, Ruleset, DurationInfo, TvdbShowData } from '$types';
 	import MediaRulesetsView from '$components/media/MediaRulesetsView.svelte';
 	import Alert from '$components/ui/Alert.svelte';
@@ -16,6 +16,7 @@
 	let rulesets = $state<Ruleset[]>([]);
 	let durationInfo = $state<DurationInfo | null>(null);
 	let tvdbShowData = $state<TvdbShowData | null>(null);
+	let tvdbUnavailable = $state(false);
 
 	$effect(() => {
 		const id = mediaId;
@@ -27,6 +28,7 @@
 		error = null;
 		durationInfo = null;
 		tvdbShowData = null;
+		tvdbUnavailable = false;
 
 		try {
 			media = await getMedia(id);
@@ -38,9 +40,12 @@
 					if (showDataResponse?.episodes) {
 						tvdbShowData = showDataResponse;
 						durationInfo = calculateDurationInfo(showDataResponse.episodes);
+					} else {
+						tvdbUnavailable = true;
 					}
 				} catch {
-					// TVDB data is optional
+					// TVDB data is optional, but the user should know the preview is degraded
+					tvdbUnavailable = true;
 				}
 			}
 		} catch (e) {
@@ -66,6 +71,11 @@
 {:else if error}
 	<Alert variant="error">{error}</Alert>
 {:else if media}
+	{#if tvdbUnavailable}
+		<div class="mb-4">
+			<Alert variant="warning">{TVDB_UNAVAILABLE_MESSAGE}</Alert>
+		</div>
+	{/if}
 	<MediaRulesetsView
 		{media}
 		liveRulesets={rulesets}

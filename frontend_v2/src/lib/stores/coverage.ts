@@ -97,6 +97,14 @@ function createCoverageStore() {
 		return { ...state, simulation: sim };
 	}
 
+	/** Priority just below every entry except the new-ruleset sentinel. */
+	function lowestPriority(sim: Map<number, SimulatedRuleset>): number {
+		const others = [...sim.values()]
+			.filter(s => s.id !== NEW_RULESET_SENTINEL_ID)
+			.map(s => s.simulatedPriority);
+		return others.length > 0 ? Math.max(...others) + 1 : 0;
+	}
+
 	return {
 		subscribe,
 
@@ -140,13 +148,9 @@ function createCoverageStore() {
 				// once existing rulesets are known.
 				const sentinel = sim.get(NEW_RULESET_SENTINEL_ID);
 				if (sentinel) {
-					const otherPriorities = [...sim.values()]
-						.filter(s => s.id !== NEW_RULESET_SENTINEL_ID)
-						.map(s => s.simulatedPriority);
-					const maxPriority = otherPriorities.length > 0 ? Math.max(...otherPriorities) : -1;
 					sim.set(NEW_RULESET_SENTINEL_ID, {
 						...sentinel,
-						simulatedPriority: maxPriority + 1
+						simulatedPriority: lowestPriority(sim)
 					});
 				}
 
@@ -176,11 +180,13 @@ function createCoverageStore() {
 				const id = existingId ?? NEW_RULESET_SENTINEL_ID;
 				const sim = new Map(state.simulation);
 				const existing = sim.get(id);
+				const initialPriority =
+					id === NEW_RULESET_SENTINEL_ID ? lowestPriority(sim) : rulesetData.priority;
 				sim.set(id, {
 					id,
 					ruleset: { ...rulesetData, id } as Ruleset,
 					enabled: existing?.enabled ?? true,
-					simulatedPriority: existing?.simulatedPriority ?? rulesetData.priority
+					simulatedPriority: existing?.simulatedPriority ?? initialPriority
 				});
 				return { ...state, simulation: sim, currentRulesetId: id };
 			});
@@ -290,42 +296,14 @@ function createCoverageStore() {
 		resetSimulation: () => {
 			update(state => {
 				const sim = initSimulation(state.allRulesets);
-				// Preserve sentinel entry with reset priority
 				const sentinel = state.simulation.get(NEW_RULESET_SENTINEL_ID);
 				if (sentinel) {
 					sim.set(NEW_RULESET_SENTINEL_ID, {
 						...sentinel,
-						simulatedPriority: sentinel.ruleset.priority
+						simulatedPriority: lowestPriority(sim)
 					});
 				}
 				return { ...state, simulation: sim };
-			});
-		},
-
-		/**
-		 * Update allRulesets with new priorities after a successful save.
-		 * This keeps local state in sync so hasSimulationChanges resets correctly.
-		 */
-		applyPriorityChanges: (changes: Array<{ id: number; priority: number }>) => {
-			update(state => {
-				const updatedRulesets = state.allRulesets.map(rs => {
-					const change = changes.find(c => c.id === rs.id);
-					if (change) {
-						return { ...rs, priority: change.priority };
-					}
-					return rs;
-				});
-				const sim = initSimulation(updatedRulesets);
-				// Preserve sentinel entry
-				const sentinel = state.simulation.get(NEW_RULESET_SENTINEL_ID);
-				if (sentinel) {
-					sim.set(NEW_RULESET_SENTINEL_ID, sentinel);
-				}
-				return {
-					...state,
-					allRulesets: updatedRulesets,
-					simulation: sim
-				};
 			});
 		},
 

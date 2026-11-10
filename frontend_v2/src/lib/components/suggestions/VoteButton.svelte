@@ -50,9 +50,9 @@
 		class:vote-idle={!hasVoted}
 		class:opacity-60={isBusy}
 		aria-pressed={hasVoted}
-		aria-label={`${hasVoted ? 'Upvote entfernen' : 'Upvote'} (${votes} ${votes === 1 ? 'Stimme' : 'Stimmen'})`}
+		aria-label={`${hasVoted ? 'Stimme zurücknehmen' : 'Abstimmen'} (${votes} ${votes === 1 ? 'Stimme' : 'Stimmen'})`}
 		disabled={!canVote}
-		title={canVote ? (hasVoted ? 'Upvote entfernen' : 'Upvote') : undefined}
+		title={canVote ? (hasVoted ? 'Stimme zurücknehmen' : 'Abstimmen') : undefined}
 		onclick={toggle}
 	>
 		<svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

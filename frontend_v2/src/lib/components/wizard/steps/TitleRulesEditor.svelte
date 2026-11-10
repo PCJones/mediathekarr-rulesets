@@ -307,14 +307,9 @@
 					</div>
 
 					<div class="flex flex-col gap-1">
-						<div class="flex items-center justify-between">
-							<label class="text-sm font-medium text-text-secondary" for="regex-pattern">
-								Regex-Muster
-							</label>
-							{#if patternValidation.error}
-								<span class="text-xs text-error">{patternValidation.error}</span>
-							{/if}
-						</div>
+						<label class="text-sm font-medium text-text-secondary" for="regex-pattern">
+							Regex-Muster
+						</label>
 						<input
 							id="regex-pattern"
 							type="text"
@@ -323,6 +318,9 @@
 							placeholder="z.B. (?<=: )(.+)$"
 							bind:value={newRegexPattern}
 						/>
+						{#if patternValidation.error}
+							<span class="text-xs text-error">{patternValidation.error}</span>
+						{/if}
 					</div>
 				</div>
 

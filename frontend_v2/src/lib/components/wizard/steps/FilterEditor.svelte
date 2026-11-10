@@ -3,7 +3,7 @@
 	import { rulesetStore, wizardStore } from '$stores/ruleset';
 	import { draftStore } from '$stores/draft';
 	import type { Filter, FilterAttribute, FilterType, DurationInfo } from '$types';
-	import { isNumericFilterValue, requiresNumericFilterValue } from '$lib/utils/regex';
+	import { isNumericFilterValue, requiresNumericFilterValue, validateRegex } from '$lib/utils/regex';
 
 	// Get context from WizardBuilder
 	const ctx = getContext<{ durationInfo: DurationInfo | null }>('wizardCallbacks');
@@ -54,12 +54,7 @@
 	// Validate regex pattern
 	function validateRegexPattern(pattern: string): string | null {
 		if (!pattern.trim()) return null;
-		try {
-			new RegExp(pattern);
-			return null;
-		} catch (e) {
-			return e instanceof Error ? e.message : 'Ungültiges Regex-Muster';
-		}
+		return validateRegex(pattern).error ?? null;
 	}
 
 	// Check regex validity when value changes (for Regex type)
@@ -74,7 +69,7 @@
 	// Numeric value validation error
 	let numberError = $derived(
 		requiresNumericFilterValue(newFilter) && String(newFilter.value).trim() && !isNumericFilterValue(String(newFilter.value))
-			? 'Bitte eine Zahl eingeben, z. B. 30 oder 42.5'
+			? 'Bitte eine Zahl eingeben, z. B. 30 oder 42.5 (Punkt statt Komma).'
 			: null
 	);
 
@@ -82,7 +77,7 @@
 	$effect(() => {
 		// Only set draft if value is non-empty and valid (handle both string and number values)
 		if (String(newFilter.value).trim() && !regexError && !numberError) {
-			draftStore.setDraftFilter({ ...newFilter });
+			draftStore.setDraftFilter({ ...newFilter, value: String(newFilter.value) });
 		} else {
 			draftStore.clearFilter();
 		}
@@ -133,7 +128,8 @@
 		if (newFilter.type === 'Regex' && regexError) return;
 		if (numberError) return;
 
-		rulesetStore.addFilter({ ...newFilter });
+		// Number inputs bind as number, the API expects a string
+		rulesetStore.addFilter({ ...newFilter, value: String(newFilter.value) });
 
 		// Clear draft and reset form
 		draftStore.clearFilter();

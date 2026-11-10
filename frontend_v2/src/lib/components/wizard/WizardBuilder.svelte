@@ -4,7 +4,7 @@
 	import { get } from 'svelte/store';
 	import { rulesetStore, wizardStore, wizardSteps, isRulesetValid } from '$stores/ruleset';
 	import { previewStore } from '$stores/preview';
-	import { coverageStore, currentSimulatedPriority } from '$stores/coverage';
+	import { coverageStore, currentSimulatedPriority, simulatedRulesets } from '$stores/coverage';
 	import { getRulesetsForMedia } from '$api/rulesets';
 	import { toBaseRuleset, toRulesetBody } from '$api/suggestions';
 	import { getChangeSnapshot, fetchItemsForTopics, collectItems } from '$utils/coverage';
@@ -36,9 +36,13 @@
 		/** Live ruleset an update is based on; null for creates. */
 		baseRuleset?: Ruleset | null;
 		viewNote?: string;
-		onSave: (data: Omit<Ruleset, 'id'>, snapshot: ChangeSnapshot | null) => Promise<void>;
+		/** `order` lists the simulator's ruleset ids by position. */
+		onSave: (
+			data: Omit<Ruleset, 'id'>,
+			snapshot: ChangeSnapshot | null,
+			order: number[]
+		) => Promise<void>;
 		onCancel: () => void;
-		onReorder?: (order: string[]) => void;
 		canCancel?: boolean;
 	}
 
@@ -54,7 +58,6 @@
 		viewNote,
 		onSave,
 		onCancel,
-		onReorder,
 		canCancel = true
 	}: Props = $props();
 
@@ -101,15 +104,15 @@
 	}
 
 	async function handleSave(data: Omit<Ruleset, 'id'>) {
+		const order = get(simulatedRulesets).map((s) => s.id);
 		const snapshot = mode === 'draft' ? await buildSnapshot(data) : null;
-		await onSave(data, snapshot);
+		await onSave(data, snapshot, order);
 	}
 
 	// Provide callbacks via context for step components
 	setContext('wizardCallbacks', {
 		get onSave() { return handleSave; },
 		get onCancel() { return onCancel; },
-		get onReorder() { return onReorder; },
 		get mode() { return mode; },
 		get viewNote() { return viewNote; },
 		get media() { return media; },

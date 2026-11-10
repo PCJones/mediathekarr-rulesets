@@ -226,7 +226,6 @@
 		content: '';
 		position: absolute;
 		inset: 0;
-		border-radius: inherit;
 	}
 
 	.tile-open:focus-visible {

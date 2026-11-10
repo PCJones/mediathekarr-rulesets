@@ -22,6 +22,7 @@ import {
 	dropRef,
 	mergeChanges,
 	nextTempKey,
+	reinsertRef,
 	savedContent,
 	type DraftContent
 } from '$utils/draftContent';
@@ -237,16 +238,6 @@ function fromRevision(
 	};
 }
 
-function reinsertRef(order: string[] | null, rulesetId: number, liveRulesets: Ruleset[]): string[] | null {
-	const ref = String(rulesetId);
-	if (!order || order.includes(ref)) return order;
-	const live = [...liveRulesets].sort((a, b) => a.priority - b.priority).map((r) => String(r.id));
-	const following = live.slice(live.indexOf(ref) + 1);
-	const index = order.findIndex((r) => following.includes(r));
-	if (index < 0) return [...order, ref];
-	return [...order.slice(0, index), ref, ...order.slice(index)];
-}
-
 // ─── Store ───────────────────────────────────────────────────────
 
 function createSuggestionDraftStore() {
@@ -313,34 +304,40 @@ function createSuggestionDraftStore() {
 			);
 		},
 
-		stageUpdate: (ruleset: RulesetBody | Ruleset, base: Ruleset, snapshot: ChangeSnapshot | null) => {
+		stageUpdate: (
+			ruleset: RulesetBody | Ruleset,
+			base: Ruleset,
+			snapshot: ChangeSnapshot | null,
+			order?: string[]
+		) => {
 			update((state) => {
 				if (base.id == null) return state;
 				const existing = changeForRuleset(state, base.id);
-				return commit(
-					upsert(state, {
-						key: existing?.key ?? `r${base.id}`,
-						op: 'update',
-						rulesetId: base.id,
-						base: { ruleset: toBaseRuleset(base) },
-						ruleset: toRulesetBody(ruleset),
-						snapshot
-					})
-				);
+				const next = upsert(state, {
+					key: existing?.key ?? `r${base.id}`,
+					op: 'update',
+					rulesetId: base.id,
+					base: { ruleset: toBaseRuleset(base) },
+					ruleset: toRulesetBody(ruleset),
+					snapshot
+				});
+				return commit({ ...next, order: order ?? next.order });
 			});
 		},
 
 		stageCreate: (
 			body: RulesetBody | Ruleset,
 			snapshot: ChangeSnapshot | null,
-			tempKey?: string
+			tempKey?: string,
+			order?: string[]
 		): string => {
 			let key = tempKey ?? '';
 			update((state) => {
 				key = tempKey ?? nextTempKey(state.changes);
 				const next = upsert(state, { key, op: 'create', ruleset: toRulesetBody(body), snapshot });
-				const order = next.order && !next.order.includes(key) ? [...next.order, key] : next.order;
-				return commit({ ...next, order });
+				if (order) return commit({ ...next, order });
+				const appended = next.order && !next.order.includes(key) ? [...next.order, key] : next.order;
+				return commit({ ...next, order: appended });
 			});
 			return key;
 		},
@@ -442,10 +439,10 @@ function createSuggestionDraftStore() {
 		},
 
 		/** Merge this draft's changes into the draft at `other`, then open it. */
-		mergeInto: (other: DraftKey): SuggestionDraftState => {
+		mergeInto: (other: DraftKey, liveRulesets: Ruleset[]): SuggestionDraftState => {
 			const source = current;
 			const stored = readDraft(other) ?? { ...emptyState, key: other };
-			const target = { ...stored, ...mergeChanges(stored, source), coverage: null };
+			const target = { ...stored, ...mergeChanges(stored, source, liveRulesets), coverage: null };
 
 			removeDraft(source.key);
 			set(commit(target));
@@ -491,6 +488,11 @@ function createSuggestionDraftStore() {
 			coverage: current.coverage
 		}),
 
+		/** Forget the open draft in memory; the persisted copy stays. */
+		close: () => {
+			set(emptyState);
+		},
+
 		clear: () => {
 			removeDraft(current.key);
 			set(emptyState);
@@ -501,7 +503,6 @@ function createSuggestionDraftStore() {
 export const suggestionDraft = createSuggestionDraftStore();
 
 // ─── Derived stores ──────────────────────────────────────────────
-
 
 export const draftChangeCounts = derived(suggestionDraft, ($d): ChangeCounts => {
 	const counts: ChangeCounts = { create: 0, update: 0, delete: 0 };

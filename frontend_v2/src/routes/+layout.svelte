@@ -7,6 +7,8 @@
 	import { themeStore } from '$stores/theme';
 	import { getSuggestions } from '$api/suggestions';
 	import ThemePicker from '$components/ui/ThemePicker.svelte';
+	import ReportIssue from '$components/common/ReportIssue.svelte';
+	import BugIcon from '$components/common/BugIcon.svelte';
 
 	let { children } = $props();
 
@@ -14,6 +16,9 @@
 
 	/** Open proposals waiting for review; admins only, fetched once. */
 	let openSuggestions = $state(0);
+
+	let reportOpen = $state(false);
+	let showReport = $derived(currentPath !== '/');
 
 	interface NavLink {
 		href: string;
@@ -118,6 +123,18 @@
 					<a href="/login" class="btn btn-ghost btn-sm">Anmeldung</a>
 				{/if}
 
+				{#if showReport}
+					<button
+						type="button"
+						class="report-header-btn btn btn-ghost btn-sm"
+						onclick={() => (reportOpen = true)}
+						aria-label="Fehler melden"
+						title="Fehler melden"
+					>
+						<BugIcon />
+					</button>
+				{/if}
+
 				<ThemePicker />
 			</div>
 		</div>
@@ -147,4 +164,20 @@
 	<main class="mx-auto max-w-7xl px-4 py-6">
 		{@render children()}
 	</main>
+
+	{#if showReport}
+		<ReportIssue bind:open={reportOpen} />
+	{/if}
 </div>
+
+<style>
+	.report-header-btn {
+		color: var(--color-warning);
+	}
+
+	@media (min-width: 1470px) {
+		.report-header-btn {
+			display: none;
+		}
+	}
+</style>

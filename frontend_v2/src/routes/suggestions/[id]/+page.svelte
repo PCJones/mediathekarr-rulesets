@@ -245,7 +245,7 @@
 				const key = newMediaDraftKey(proposed);
 				if (
 					suggestionDraft.exists(key) &&
-					!confirm('Für dieses Medium gibt es lokale Änderungen. Durch die Kopie ersetzen?')
+					!confirm(`Für ${forThisMedia} gibt es lokale Änderungen. Durch die Kopie ersetzen?`)
 				) {
 					return;
 				}

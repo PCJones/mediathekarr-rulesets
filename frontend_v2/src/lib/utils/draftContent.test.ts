@@ -227,7 +227,7 @@ describe('mergeChanges', () => {
 	it('re-keys creates that collide with the target', () => {
 		const target: DraftContent = { description: 'Ziel', order: null, changes: [create('c1', 'A')] };
 		const source: DraftContent = { description: '', order: null, changes: [create('c1', 'B')] };
-		const merged = mergeChanges(target, source);
+		const merged = mergeChanges(target, source, live);
 		expect(merged.changes.map((c) => [c.key, c.ruleset?.topic])).toEqual([
 			['c1', 'A'],
 			['c2', 'B']
@@ -240,11 +240,11 @@ describe('mergeChanges', () => {
 			order: ['12', '11', 'c1'],
 			changes: [create('c1', 'A')]
 		};
-		const merged = mergeChanges(target, {
-			description: '',
-			order: null,
-			changes: [create('c1', 'B')]
-		});
+		const merged = mergeChanges(
+			target,
+			{ description: '', order: null, changes: [create('c1', 'B')] },
+			live
+		);
 		expect(merged.order).toEqual(['12', '11', 'c1', 'c2']);
 	});
 
@@ -255,7 +255,7 @@ describe('mergeChanges', () => {
 			order: null,
 			changes: [{ ...update('55'), key: 'x' }]
 		};
-		const merged = mergeChanges(target, source);
+		const merged = mergeChanges(target, source, live);
 		expect(merged.changes).toHaveLength(1);
 		expect(merged.changes[0].key).toBe('r11');
 		expect(merged.changes[0].ruleset?.filters[0].value).toBe('55');
@@ -263,18 +263,43 @@ describe('mergeChanges', () => {
 
 	it('drops a deleted ruleset from the order', () => {
 		const target: DraftContent = { description: 'Ziel', order: ['12', '11'], changes: [] };
-		const merged = mergeChanges(target, {
-			description: '',
-			order: null,
-			changes: [{ key: 'r12', op: 'delete', rulesetId: 12, base: { ruleset: serverBase }, snapshot: null }]
-		});
+		const merged = mergeChanges(
+			target,
+			{
+				description: '',
+				order: null,
+				changes: [{ key: 'r12', op: 'delete', rulesetId: 12, base: { ruleset: serverBase }, snapshot: null }]
+			},
+			live
+		);
 		expect(merged.order).toEqual(['11']);
+	});
+
+	it('puts a ruleset back at its live position when an update replaces its delete', () => {
+		const target: DraftContent = {
+			description: 'Ziel',
+			order: ['12', 'c1'],
+			changes: [
+				{ key: 'r11', op: 'delete', rulesetId: 11, base: { ruleset: serverBase }, snapshot: null },
+				create('c1', 'A')
+			]
+		};
+		const merged = mergeChanges(
+			target,
+			{ description: '', order: null, changes: [update('55')] },
+			live
+		);
+		expect(merged.changes[0]).toMatchObject({ key: 'r11', op: 'update' });
+		expect(merged.order).toEqual(['11', '12', 'c1']);
 	});
 
 	it('keeps the target description unless it is empty', () => {
 		const empty: DraftContent = { description: '', order: null, changes: [] };
-		expect(mergeChanges({ ...empty, description: 'Ziel' }, { ...empty, description: 'Quelle' }).description).toBe('Ziel');
-		expect(mergeChanges(empty, { ...empty, description: 'Quelle' }).description).toBe('Quelle');
+		expect(
+			mergeChanges({ ...empty, description: 'Ziel' }, { ...empty, description: 'Quelle' }, live)
+				.description
+		).toBe('Ziel');
+		expect(mergeChanges(empty, { ...empty, description: 'Quelle' }, live).description).toBe('Quelle');
 	});
 });
 

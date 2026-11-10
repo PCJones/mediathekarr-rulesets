@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { getShowData, calculateDurationInfo } from '$api/tvdb';
+	import { getShowData, calculateDurationInfo, TVDB_UNAVAILABLE_MESSAGE } from '$api/tvdb';
 	import { suggestionDraft } from '$stores/suggestionDraft';
 	import type { Media, DurationInfo, TvdbShowData } from '$types';
 	import type { ProposedMedia } from '$types/suggestion';
@@ -16,6 +16,7 @@
 	let proposedMedia = $state<ProposedMedia | null>(null);
 	let durationInfo = $state<DurationInfo | null>(null);
 	let tvdbShowData = $state<TvdbShowData | null>(null);
+	let tvdbUnavailable = $state(false);
 
 	let media = $derived<Media | null>(
 		proposedMedia
@@ -30,7 +31,7 @@
 			: null
 	);
 
-	let loadedKey = $state<string | null>(null);
+	let loadedKey: string | null = null;
 
 	$effect(() => {
 		const key = draftKey;
@@ -50,15 +51,19 @@
 		proposedMedia = state.proposedMedia;
 		isLoading = false;
 
+		tvdbUnavailable = false;
 		if (proposedMedia?.tvdbId) {
 			try {
 				const showData = await getShowData(proposedMedia.tvdbId);
 				if (showData?.episodes) {
 					tvdbShowData = showData;
 					durationInfo = calculateDurationInfo(showData.episodes);
+				} else {
+					tvdbUnavailable = true;
 				}
 			} catch {
-				// TVDB data is optional
+				// TVDB data is optional, but the user should know the preview is degraded
+				tvdbUnavailable = true;
 			}
 		}
 	}
@@ -73,6 +78,11 @@
 		<Spinner size="lg" />
 	</div>
 {:else if media && proposedMedia}
+	{#if tvdbUnavailable}
+		<div class="mb-4">
+			<Alert variant="warning">{TVDB_UNAVAILABLE_MESSAGE}</Alert>
+		</div>
+	{/if}
 	<MediaRulesetsView
 		{media}
 		liveRulesets={[]}

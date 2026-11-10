@@ -12,6 +12,7 @@ import type {
 	Media
 } from '$types';
 import { MATCHING_STRATEGIES } from '$types';
+import { normalizeTopic } from '$lib/utils/topic';
 
 // Default empty ruleset
 const defaultRuleset: Omit<Ruleset, 'id'> = {
@@ -114,7 +115,7 @@ function createRulesetStore() {
 			update(r => ({
 				...r,
 				tvdbId: media.tvdbId ?? undefined,
-				topic: media.name
+				topic: normalizeTopic(media.name)
 			}));
 		}
 	};

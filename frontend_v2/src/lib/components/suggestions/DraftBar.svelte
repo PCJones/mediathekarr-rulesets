@@ -36,8 +36,11 @@
 
 	let saveMode = $derived(mode === 'save' && suggestionId !== null);
 	let total = $derived(counts.create + counts.update + counts.delete);
+	let blockedReason = $derived(
+		disabledReason ?? (saveMode && total === 0 ? 'Ein Vorschlag braucht mindestens eine Änderung' : null)
+	);
 	let disabled = $derived(
-		total === 0 || disabledReason !== null || (saveMode && !hasUnsavedEdits)
+		total === 0 || blockedReason !== null || (saveMode && !hasUnsavedEdits)
 	);
 </script>
 
@@ -64,8 +67,8 @@
 	</div>
 
 	<div class="flex flex-wrap items-center gap-2">
-		{#if disabledReason}
-			<span class="text-xs text-warning">{disabledReason}</span>
+		{#if blockedReason}
+			<span class="text-xs text-warning">{blockedReason}</span>
 		{:else if saveMode}
 			<span class="text-xs {hasUnsavedEdits ? 'font-medium text-accent' : 'text-text-tertiary'}">
 				{hasUnsavedEdits ? 'Ungespeicherte Änderungen' : 'Keine ungespeicherten Änderungen'}

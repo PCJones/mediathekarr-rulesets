@@ -166,6 +166,13 @@ html[data-palette="emerald"][data-mode="dark"] {
 		-moz-osx-font-smoothing: grayscale;
 	}
 
+	/* JetBrains Mono ligatures turn regex syntax like "<=" into "≤" */
+	.font-mono,
+	code,
+	pre {
+		font-variant-ligatures: none;
+	}
+
 	/* Restore pointer cursor on enabled buttons (Tailwind 4 preflight strips it) */
 	button:not(:disabled),
 	[role="button"]:not([aria-disabled="true"]),
@@ -271,7 +278,7 @@ html[data-palette="emerald"][data-mode="dark"] {
 	}
 
 	.btn-ghost:hover:not(:disabled) {
-		background-color: var(--color-surface);
+		background-color: var(--color-surface-raised);
 		border-color: transparent;
 		color: var(--color-text);
 	}
