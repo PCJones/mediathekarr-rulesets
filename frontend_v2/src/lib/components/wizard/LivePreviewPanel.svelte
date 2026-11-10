@@ -14,6 +14,7 @@
 		NEW_RULESET_SENTINEL_ID
 	} from '$stores/coverage';
 	import { buildTitleFromRules } from '$utils/regex';
+	import { matchesTopic } from '$utils/coverage';
 	import { matchEpisodeByStrategy, type TvdbMatchResult } from '$utils/tvdbMatcher';
 	import type { Filter, MediathekItem, TitleConstructionStep, RegexRule, TvdbShowData, TvdbEpisode } from '$types';
 	import Badge from '$components/ui/Badge.svelte';
@@ -34,6 +35,7 @@
 	let hasMoreResults = $derived($previewStore.hasMoreResults);
 
 	// Get filters and title rules from ruleset store
+	let rulesetTopic = $derived($rulesetStore.topic);
 	let filters = $derived($rulesetStore.filters);
 	let titleRules = $derived($rulesetStore.titleRegexRules);
 	let currentStep = $derived($wizardStore.currentStep);
@@ -88,6 +90,24 @@
 
 	// Search
 	let searchQuery = $state('');
+
+	let expandedCell = $state<{ id: string; field: 'topic' | 'title' } | null>(null);
+
+	function isExpanded(id: string, field: 'topic' | 'title'): boolean {
+		return expandedCell?.id === id && expandedCell.field === field;
+	}
+
+	function focusAndSelect(node: HTMLInputElement) {
+		node.focus();
+		node.select();
+	}
+
+	function handleCellInputKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
+			e.stopPropagation();
+			expandedCell = null;
+		}
+	}
 
 	// Column widths for resizable columns
 	let columnWidths = $state({
@@ -195,8 +215,11 @@
 		);
 	}
 
-	let filteredItems = $derived(rawItems.filter(item => applyAllFilters(item) && matchesSearch(item)));
-	let userFilteredCount = $derived(rawItems.length - filteredItems.length);
+	let topicItems = $derived(rawItems.filter(item => matchesTopic(item.topic, rulesetTopic)));
+	let otherTopicCount = $derived(rawItems.length - topicItems.length);
+	let otherTopicExample = $derived(rawItems.find(item => !matchesTopic(item.topic, rulesetTopic))?.topic ?? '');
+	let filteredItems = $derived(topicItems.filter(item => applyAllFilters(item) && matchesSearch(item)));
+	let userFilteredCount = $derived(topicItems.length - filteredItems.length);
 
 	// Evaluate coverage when items OR simulation state changes.
 	// untrack the store write to avoid write-during-read reactivity issues.
@@ -391,6 +414,11 @@
 						-{userFilteredCount} Filter
 					</Badge>
 				{/if}
+				{#if otherTopicCount > 0}
+					<Badge variant="warning" size="sm">
+						-{otherTopicCount} anderes Topic
+					</Badge>
+				{/if}
 				{#if autoFilteredCount > 0}
 					<Badge size="sm">
 						-{autoFilteredCount} AD/GS
@@ -554,9 +582,33 @@
 								<td class="truncate overflow-hidden">
 									<span class="badge badge-sm">{item.channel}</span>
 								</td>
-								<td class="truncate overflow-hidden" title={item.topic}>{item.topic}</td>
-								<td class="truncate overflow-hidden" title={item.title}>
-									{#if showConstruction && item.titleFailed}
+								<td class="truncate overflow-hidden copy-cell" title={item.topic} onclick={() => expandedCell = { id: item.id, field: 'topic' }}>
+									{#if isExpanded(item.id, 'topic')}
+										<input
+											type="text"
+											class="cell-input"
+											readonly
+											value={item.topic}
+											use:focusAndSelect
+											onblur={() => expandedCell = null}
+											onkeydown={handleCellInputKeydown}
+										/>
+									{:else}
+										{item.topic}
+									{/if}
+								</td>
+								<td class="truncate overflow-hidden copy-cell" title={item.title} onclick={() => expandedCell = { id: item.id, field: 'title' }}>
+									{#if isExpanded(item.id, 'title')}
+										<input
+											type="text"
+											class="cell-input"
+											readonly
+											value={item.title}
+											use:focusAndSelect
+											onblur={() => expandedCell = null}
+											onkeydown={handleCellInputKeydown}
+										/>
+									{:else if showConstruction && item.titleFailed}
 										<span class="line-through text-error">{item.title}</span>
 									{:else}
 										{item.title}
@@ -656,8 +708,11 @@
 	</div>
 
 	<!-- Footer -->
-	{#if (autoFilteredCount > 0 || userFilteredCount > 0) && rawItems.length > 0}
+	{#if (otherTopicCount > 0 || autoFilteredCount > 0 || userFilteredCount > 0) && rawItems.length > 0}
 		<div class="mt-3 text-xs text-text-tertiary space-y-0.5">
+			{#if otherTopicCount > 0}
+				<div>{otherTopicCount} mit abweichendem Topic ausgeblendet (z.B. „{otherTopicExample}“). Füge das Topic hinzu, falls es zur Serie gehört.</div>
+			{/if}
 			{#if userFilteredCount > 0}
 				<div>{userFilteredCount} durch deine Filter entfernt</div>
 			{/if}
@@ -732,4 +787,21 @@
 		height: 100%;
 	}
 
+	.copy-cell {
+		cursor: text;
+	}
+
+	.cell-input {
+		display: block;
+		width: calc(100% + 0.75rem);
+		margin: -1px -0.375rem;
+		padding: 0 0.375rem;
+		font: inherit;
+		line-height: inherit;
+		color: var(--color-text);
+		background-color: var(--color-bg);
+		border: 1px solid var(--color-accent);
+		border-radius: 0.25rem;
+		outline: none;
+	}
 </style>

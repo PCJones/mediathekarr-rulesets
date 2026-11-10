@@ -35,6 +35,14 @@ export function splitTopics(topic: string): string[] {
 		.filter((t) => t.length > 0);
 }
 
+/** Exact, case-sensitive topic match, mirroring the backend's per-topic lookup. */
+export function matchesTopic(itemTopic: string, rulesetTopic: string): boolean {
+	return rulesetTopic
+		.split('|')
+		.map((t) => t.trim())
+		.some((t) => t.length > 0 && t === itemTopic);
+}
+
 /** Which pipeline stage an item fails on, or `ok` when it matches fully. */
 export function matchStage(
 	item: MediathekItem,
@@ -49,8 +57,7 @@ function evaluateItem(
 	ruleset: Ruleset,
 	tvdbEpisodes: TvdbEpisode[]
 ): { stage: MatchStage; tvdb?: TvdbMatchResult } {
-	const topics = splitTopics(ruleset.topic);
-	if (!topics.some((t) => item.topic.toLowerCase().includes(t))) return { stage: 'topic' };
+	if (!matchesTopic(item.topic, ruleset.topic)) return { stage: 'topic' };
 
 	if (checkSkipKeywords(item.title) !== null) return { stage: 'skip' };
 
