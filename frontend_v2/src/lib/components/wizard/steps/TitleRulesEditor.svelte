@@ -86,7 +86,7 @@
 	$effect(() => {
 		if (newRuleType === 'static') {
 			// Static rule: show preview if value is non-empty
-			if (newStaticValue.trim()) {
+			if (newStaticValue) {
 				draftStore.setDraftTitleRule({
 					type: 'static',
 					value: newStaticValue
@@ -111,7 +111,7 @@
 	// Add new rule
 	function addRule() {
 		if (newRuleType === 'static') {
-			if (!newStaticValue.trim()) return;
+			if (!newStaticValue) return;
 			rulesetStore.addTitleRule({
 				type: 'static',
 				value: newStaticValue
@@ -354,7 +354,7 @@
 				<button
 					class="btn btn-primary"
 					onclick={addRule}
-					disabled={newRuleType === 'static' ? !newStaticValue.trim() : (!newRegexPattern.trim() || !patternValidation.valid)}
+					disabled={newRuleType === 'static' ? !newStaticValue : (!newRegexPattern.trim() || !patternValidation.valid)}
 				>
 					Regel hinzufügen
 				</button>
