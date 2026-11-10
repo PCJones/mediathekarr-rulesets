@@ -55,17 +55,17 @@ function authenticate(): int {
     $authHeader = getAuthHeader();
 
     if (!$authHeader) {
-        errorResponse('Authorization header required', 401);
+        errorResponse('Bitte zuerst anmelden.', 401);
     }
 
     if (!preg_match('/Bearer\s(\S+)/i', $authHeader, $matches)) {
-        errorResponse('Invalid Authorization header format', 401);
+        errorResponse('Deine Anmeldung ist ungültig. Bitte erneut anmelden.', 401);
     }
 
     $userId = validateJWT($matches[1]);
 
     if (!$userId) {
-        errorResponse('Invalid or expired token', 401);
+        errorResponse('Deine Sitzung ist abgelaufen. Bitte erneut anmelden.', 401);
     }
 
     return $userId;
@@ -88,7 +88,7 @@ function currentUser(): array {
     $user = $stmt->fetch();
 
     if (!$user) {
-        errorResponse('Invalid or expired token', 401);
+        errorResponse('Deine Sitzung ist abgelaufen. Bitte erneut anmelden.', 401);
     }
 
     return [
@@ -103,7 +103,7 @@ function requireAdmin(): int {
     $user = currentUser();
 
     if (!$user['is_admin']) {
-        errorResponse('Admin access required', 403);
+        errorResponse('Diese Aktion ist nur für Admins möglich.', 403);
     }
 
     return $user['id'];

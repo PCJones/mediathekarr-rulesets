@@ -25,7 +25,7 @@ function issueToken(array $user): never {
 
 function validateUsername(string $username): void {
     if (!preg_match('/^[A-Za-z0-9_.-]{3,30}$/', $username)) {
-        errorResponse('Username must be 3-30 characters (letters, digits, _ . -)', 400);
+        errorResponse('Der Benutzername muss 3 bis 30 Zeichen lang sein und darf nur Buchstaben, Ziffern sowie _ . - enthalten.', 400);
     }
 }
 
@@ -105,10 +105,12 @@ function uniqueUsername(PDO $db, string $base): string {
 // POST /auth
 if ($path === '' && $method === 'POST') {
     $input = getJsonInput();
-    validateRequired($input, ['password']);
     $identifier = trim($input['identifier'] ?? $input['email'] ?? $input['username'] ?? '');
     if ($identifier === '') {
-        errorResponse("Field 'identifier' is required", 400);
+        errorResponse('Bitte Benutzername oder E-Mail-Adresse eingeben.', 400);
+    }
+    if (!isset($input['password']) || $input['password'] === '') {
+        errorResponse('Bitte das Passwort eingeben.', 400);
     }
 
     $user = findUserBy($db, str_contains($identifier, '@') ? 'email' : 'username', $identifier);
@@ -127,7 +129,7 @@ if ($path === '' && $method === 'POST') {
         if ($accountKey) {
             recordAttempt($db, $accountKey);
         }
-        errorResponse('Invalid credentials', 401);
+        errorResponse('Benutzername/E-Mail oder Passwort ist falsch.', 401);
     }
 
     $db->prepare('DELETE FROM login_throttle WHERE key = ?')->execute([$accountKey]);
@@ -143,22 +145,26 @@ if ($path === 'register' && $method === 'POST') {
     }
     recordAttempt($db, $registerKey);
 
-    validateRequired($input, ['username', 'email', 'password']);
+    foreach (['username' => 'einen Benutzernamen', 'email' => 'eine E-Mail-Adresse', 'password' => 'ein Passwort'] as $field => $label) {
+        if (!isset($input[$field]) || $input[$field] === '') {
+            errorResponse("Bitte $label eingeben.", 400);
+        }
+    }
     $username = trim($input['username']);
     $email = trim($input['email']);
 
     validateUsername($username);
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        errorResponse('Invalid email address', 400);
+        errorResponse('Bitte eine gültige E-Mail-Adresse eingeben.', 400);
     }
     if (strlen($input['password']) < 8) {
-        errorResponse('Password must be at least 8 characters', 400);
+        errorResponse('Das Passwort muss mindestens 8 Zeichen lang sein.', 400);
     }
     if (findUserBy($db, 'email', $email)) {
-        errorResponse('Email is already registered', 409);
+        errorResponse('Mit dieser E-Mail-Adresse ist bereits ein Konto registriert.', 409);
     }
     if (findUserBy($db, 'username', $username)) {
-        errorResponse('Username is already taken', 409);
+        errorResponse('Dieser Benutzername ist bereits vergeben.', 409);
     }
 
     $stmt = $db->prepare('INSERT INTO users (username, email, password, is_admin) VALUES (?, ?, ?, 0)');
@@ -178,10 +184,12 @@ if ($path === 'github' && $method === 'GET') {
 // POST /auth/github - exchange OAuth code for a JWT
 if ($path === 'github' && $method === 'POST') {
     if (GITHUB_CLIENT_ID === '' || GITHUB_CLIENT_SECRET === '') {
-        errorResponse('GitHub login is not configured', 404);
+        errorResponse('Die Anmeldung mit GitHub ist auf diesem Server nicht eingerichtet.', 404);
     }
     $input = getJsonInput();
-    validateRequired($input, ['code', 'redirectUri']);
+    if (empty($input['code']) || empty($input['redirectUri'])) {
+        errorResponse('Die Anmeldung mit GitHub ist fehlgeschlagen. Bitte erneut versuchen.', 400);
+    }
 
     $tokenData = githubRequest('https://github.com/login/oauth/access_token', [
         'client_id' => GITHUB_CLIENT_ID,
@@ -190,13 +198,13 @@ if ($path === 'github' && $method === 'POST') {
         'redirect_uri' => $input['redirectUri'],
     ]);
     if (empty($tokenData['access_token'])) {
-        errorResponse('GitHub authorization failed: ' . ($tokenData['error_description'] ?? 'no access token'), 401);
+        errorResponse('Die Anmeldung mit GitHub ist fehlgeschlagen. Bitte erneut versuchen.', 401);
     }
     $ghToken = $tokenData['access_token'];
 
     $ghUser = githubRequest('https://api.github.com/user', null, $ghToken);
     if (empty($ghUser['id'])) {
-        errorResponse('Could not load GitHub profile', 502);
+        errorResponse('Das GitHub-Profil konnte nicht geladen werden. Bitte später erneut versuchen.', 502);
     }
 
     $email = $ghUser['email'] ?? null;
@@ -218,7 +226,7 @@ if ($path === 'github' && $method === 'POST') {
         }
     }
     if (!$email) {
-        errorResponse('Your GitHub account has no verified email address', 400);
+        errorResponse('Dein GitHub-Konto hat keine bestätigte E-Mail-Adresse. Bitte zuerst bei GitHub eine E-Mail-Adresse bestätigen.', 400);
     }
 
     $githubId = (string)$ghUser['id'];

@@ -427,8 +427,9 @@ function normaliseBundle(PDO $db, array $input, ?int $mediaId): array {
         if (!in_array($op, ['create', 'update', 'delete'], true)) {
             errorResponse("$key: op must be create, update or delete", 400);
         }
+        $changeLabel = 'Änderung ' . ($i + 1) . ': ';
         if ($op !== 'create' && $mediaId === null) {
-            errorResponse("$key: nur neue Rulesets sind für vorgeschlagene Media möglich", 400);
+            errorResponse("{$changeLabel}Für eine neu vorgeschlagene Serie bzw. einen Film können nur neue Rulesets angelegt werden.", 400);
         }
 
         $normalised = ['key' => $key, 'op' => $op];
@@ -439,7 +440,7 @@ function normaliseBundle(PDO $db, array $input, ?int $mediaId): array {
                 errorResponse("$key: rulesetId is required", 400);
             }
             if (isset($rulesetKeys[$rulesetId])) {
-                errorResponse("$key: Ruleset #$rulesetId wird bereits von Änderung '{$rulesetKeys[$rulesetId]}' verändert", 400);
+                errorResponse("{$changeLabel}Dieses Ruleset wird im selben Vorschlag bereits von einer anderen Änderung bearbeitet.", 400);
             }
             $rulesetKeys[$rulesetId] = $key;
             $live = liveRuleset($db, $rulesetId);
@@ -469,12 +470,13 @@ function normaliseBundle(PDO $db, array $input, ?int $mediaId): array {
             if (!is_array($ruleset)) {
                 errorResponse("$key: ruleset is required", 400);
             }
-            foreach (['topic', 'matchingStrategy'] as $required) {
-                if (!isset($ruleset[$required]) || $ruleset[$required] === '') {
-                    errorResponse("$key: $required is required", 400);
-                }
+            if (!isset($ruleset['topic']) || $ruleset['topic'] === '') {
+                errorResponse("{$changeLabel}Bitte mindestens ein Topic angeben.", 400);
             }
-            validateRulesetInput($db, $ruleset, "$key: ");
+            if (!isset($ruleset['matchingStrategy']) || $ruleset['matchingStrategy'] === '') {
+                errorResponse("{$changeLabel}Bitte eine Matching-Strategie auswählen.", 400);
+            }
+            validateRulesetInput($db, $ruleset, $changeLabel);
             $normalised['ruleset'] = rulesetBody($ruleset);
         }
 

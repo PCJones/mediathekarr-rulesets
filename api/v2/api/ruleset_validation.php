@@ -11,83 +11,110 @@ const FILTER_TYPES = ['GreaterThan', 'LessThan', 'Equals', 'Contains', 'Regex'];
 const RULE_FIELDS = ['title', 'topic', 'description', 'channel'];
 const RULESET_BODY_FIELDS = ['topic', 'matchingStrategy', 'filters', 'titleRegexRules', 'seasonRegex', 'episodeRegex'];
 
-function validateRegex(string $pattern, string $fieldName, string $prefix = ''): void {
+function describeRegexError(string $detail): string {
+    $detail = preg_replace('/ at offset \d+$/', '', $detail);
+    $hints = [
+        '/lookbehind assertion is not (fixed length|limited)/' => 'Ein Lookbehind „(?<=…)“ darf keine beliebig lange Wiederholung wie * oder + enthalten. '
+            . 'Tipp: Lookbehind weglassen und den gewünschten Teil in Klammern setzen, z. B. „Tatort:\s*(.+)“ statt „(?<=Tatort:\s*).+“.',
+        '/missing closing parenthesis/' => 'Es fehlt eine schließende Klammer „)“.',
+        '/unmatched closing parenthesis/' => 'Es gibt eine schließende Klammer „)“ zu viel.',
+        '/missing terminating \] for character class/' => 'Es fehlt eine schließende eckige Klammer „]“.',
+        '/quantifier does not follow a repeatable item/' => 'Ein Wiederholungszeichen (*, +, ? oder {…}) steht an einer Stelle, an der nichts wiederholt werden kann.',
+        '/\\\\ at end of pattern/' => 'Das Muster endet mit einem einzelnen Backslash „\\“.',
+        '/range out of order in character class/' => 'Ein Bereich in eckigen Klammern ist verdreht, z. B. „[z-a]“ statt „[a-z]“.',
+    ];
+    foreach ($hints as $pattern => $hint) {
+        if (preg_match($pattern, $detail)) {
+            return $hint;
+        }
+    }
+    return "Das Muster ist kein gültiger regulärer Ausdruck ($detail).";
+}
+
+function validateRegex(string $pattern, string $label, string $prefix = ''): void {
     if (@preg_match("\x01" . $pattern . "\x01", '') === false) {
         $detail = preg_replace('/^preg_match\(\): (Compilation failed: )?/', '', error_get_last()['message'] ?? 'invalid pattern');
-        errorResponse("{$prefix}Invalid regex in '$fieldName': $detail", 400);
+        errorResponse("{$prefix}{$label}: " . describeRegexError($detail), 400);
     }
 }
 
 function validateRulesetInput(PDO $db, array $input, string $prefix = ''): void {
     if (array_key_exists('topic', $input) && (!is_string($input['topic']) || trim($input['topic']) === '')) {
-        errorResponse("{$prefix}topic must be a non-empty string", 400);
+        errorResponse("{$prefix}Bitte mindestens ein Topic angeben.", 400);
     }
     if (array_key_exists('matchingStrategy', $input) && !in_array($input['matchingStrategy'], MATCHING_STRATEGIES, true)) {
-        errorResponse("{$prefix}Invalid matchingStrategy", 400);
+        errorResponse("{$prefix}Bitte eine Matching-Strategie auswählen.", 400);
     }
     if (array_key_exists('priority', $input) && !is_int($input['priority'])) {
-        errorResponse("{$prefix}priority must be an integer", 400);
+        errorResponse("{$prefix}Die Priorität muss eine ganze Zahl sein.", 400);
     }
     if (array_key_exists('mediaId', $input) && $input['mediaId'] !== null) {
         if (!is_int($input['mediaId'])) {
-            errorResponse("{$prefix}mediaId must be an integer", 400);
+            errorResponse("{$prefix}Die Serie bzw. der Film ist ungültig.", 400);
         }
         $stmt = $db->prepare('SELECT id FROM media WHERE id = ?');
         $stmt->execute([$input['mediaId']]);
         if (!$stmt->fetch()) {
-            errorResponse("{$prefix}Media not found", 404);
+            errorResponse("{$prefix}Die Serie bzw. der Film wurde nicht gefunden. Bitte die Seite neu laden.", 404);
         }
     }
-    foreach (['seasonRegex', 'episodeRegex'] as $field) {
+    foreach (['seasonRegex' => 'Staffel-Regex', 'episodeRegex' => 'Episoden-Regex'] as $field => $label) {
         $value = $input[$field] ?? null;
         if ($value === null) {
             continue;
         }
         if (!is_string($value)) {
-            errorResponse("{$prefix}$field must be a string", 400);
+            errorResponse("{$prefix}{$label}: Bitte ein Muster als Text eingeben.", 400);
         }
         if ($value !== '') {
-            validateRegex($value, $field, $prefix);
+            validateRegex($value, $label, $prefix);
         }
     }
     if (array_key_exists('filters', $input)) {
         if (!is_array($input['filters']) || !array_is_list($input['filters'])) {
-            errorResponse("{$prefix}filters must be an array", 400);
+            errorResponse("{$prefix}Die Filter konnten nicht gelesen werden. Bitte die Seite neu laden und erneut versuchen.", 400);
         }
         foreach ($input['filters'] as $i => $f) {
-            if (!is_array($f) || !in_array($f['attribute'] ?? null, FILTER_ATTRIBUTES, true)
-                || !in_array($f['type'] ?? null, FILTER_TYPES, true) || !is_string($f['value'] ?? null)) {
-                errorResponse("{$prefix}Invalid filter at index $i", 400);
+            $label = 'Filter ' . ($i + 1);
+            if (!is_array($f) || !in_array($f['attribute'] ?? null, FILTER_ATTRIBUTES, true)) {
+                errorResponse("{$prefix}{$label}: Bitte ein Attribut auswählen (Dauer, Sender, Topic, Titel oder Beschreibung).", 400);
+            }
+            if (!in_array($f['type'] ?? null, FILTER_TYPES, true)) {
+                errorResponse("{$prefix}{$label}: Bitte eine Bedingung auswählen.", 400);
+            }
+            if (!is_string($f['value'] ?? null) || trim($f['value']) === '') {
+                errorResponse("{$prefix}{$label}: Bitte einen Wert eingeben.", 400);
             }
             if ($f['type'] === 'Regex') {
-                validateRegex($f['value'], "filters[$i].value", $prefix);
+                validateRegex($f['value'], $label, $prefix);
             }
             // Only plain decimals, so the editor preview (JS) and MediathekArr (.NET) parse them identically
             if (($f['attribute'] === 'duration' || in_array($f['type'], ['GreaterThan', 'LessThan'], true))
                 && !preg_match('/^\d+(\.\d+)?$/D', $f['value'])) {
-                errorResponse("{$prefix}Filter at index $i needs a numeric value", 400);
+                errorResponse("{$prefix}{$label}: „{$f['value']}“ ist keine gültige Zahl. Bitte z. B. 30 oder 42.5 eingeben (Punkt statt Komma).", 400);
             }
         }
     }
     if (array_key_exists('titleRegexRules', $input)) {
         if (!is_array($input['titleRegexRules']) || !array_is_list($input['titleRegexRules'])) {
-            errorResponse("{$prefix}titleRegexRules must be an array", 400);
+            errorResponse("{$prefix}Die Titel-Regeln konnten nicht gelesen werden. Bitte die Seite neu laden und erneut versuchen.", 400);
         }
         foreach ($input['titleRegexRules'] as $i => $r) {
-            if (!is_array($r)) {
-                errorResponse("{$prefix}Invalid title rule at index $i", 400);
-            }
+            $label = 'Titel-Regel ' . ($i + 1);
             if (($r['type'] ?? null) === 'static') {
                 if (!is_string($r['value'] ?? null)) {
-                    errorResponse("{$prefix}Title rule $i: static rule needs a string value", 400);
+                    errorResponse("{$prefix}{$label}: Bitte einen statischen Text eingeben.", 400);
                 }
             } elseif (($r['type'] ?? null) === 'regex') {
-                if (!in_array($r['field'] ?? null, RULE_FIELDS, true) || !is_string($r['pattern'] ?? null)) {
-                    errorResponse("{$prefix}Title rule $i: regex rule needs field and pattern", 400);
+                if (!in_array($r['field'] ?? null, RULE_FIELDS, true)) {
+                    errorResponse("{$prefix}{$label}: Bitte ein Feld auswählen (Titel, Topic, Beschreibung oder Sender).", 400);
                 }
-                validateRegex($r['pattern'], "titleRegexRules[$i].pattern", $prefix);
+                if (!is_string($r['pattern'] ?? null) || $r['pattern'] === '') {
+                    errorResponse("{$prefix}{$label}: Bitte ein Regex-Muster eingeben.", 400);
+                }
+                validateRegex($r['pattern'], $label, $prefix);
             } else {
-                errorResponse("{$prefix}Title rule $i: type must be 'static' or 'regex'", 400);
+                errorResponse("{$prefix}{$label}: Bitte „Regex-Extraktion“ oder „Statischer Text“ auswählen.", 400);
             }
         }
     }
@@ -143,15 +170,15 @@ function rulesetHash(array $input): string {
 function validateMediaInput(array $media, string $prefix = ''): void {
     $type = $media['type'] ?? null;
     if (!in_array($type, ['movie', 'show'], true)) {
-        errorResponse($prefix . 'type must be "movie" or "show"', 400);
+        errorResponse($prefix . 'Bitte als Typ „Serie“ oder „Film“ auswählen.', 400);
     }
-    foreach (['tvdbId', 'tmdbId'] as $field) {
+    foreach (['tvdbId' => 'TVDB-ID', 'tmdbId' => 'TMDB-ID'] as $field => $label) {
         if (($media[$field] ?? null) !== null && !is_int($media[$field])) {
-            errorResponse($prefix . "$field must be an integer", 400);
+            errorResponse($prefix . "Die $label muss eine Zahl sein.", 400);
         }
     }
     if (($media['imdbId'] ?? null) !== null && !is_string($media['imdbId'])) {
-        errorResponse($prefix . 'imdbId must be a string', 400);
+        errorResponse($prefix . 'Die IMDB-ID muss ein Text sein, z. B. tt1234567.', 400);
     }
     if ($type === 'show' && primaryMediaId($media) === null) {
         errorResponse($prefix . 'Serien brauchen eine TVDB-ID', 400);

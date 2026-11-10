@@ -108,7 +108,12 @@ function handlePost(PDO $db): void {
     requireAdmin();
     $input = getJsonInput();
 
-    validateRequired($input, ['topic', 'matchingStrategy']);
+    if (!isset($input['topic']) || $input['topic'] === '') {
+        errorResponse('Bitte mindestens ein Topic angeben.', 400);
+    }
+    if (!isset($input['matchingStrategy']) || $input['matchingStrategy'] === '') {
+        errorResponse('Bitte eine Matching-Strategie auswählen.', 400);
+    }
     validateRulesetInput($db, $input);
 
     $stmt = $db->prepare('
@@ -144,11 +149,11 @@ function loadRulesetWithMedia(PDO $db, int $rulesetId): ?array {
 function handleReorder(PDO $db): void {
     $input = getJsonInput();
     if (!array_is_list($input) || $input === []) {
-        errorResponse('Expected a non-empty array of {id, priority}', 400);
+        errorResponse('Die neue Reihenfolge konnte nicht gelesen werden. Bitte die Seite neu laden und erneut versuchen.', 400);
     }
-    foreach ($input as $i => $item) {
+    foreach ($input as $item) {
         if (!is_array($item) || !is_int($item['id'] ?? null) || !is_int($item['priority'] ?? null)) {
-            errorResponse("Item $i must have integer id and priority", 400);
+            errorResponse('Die neue Reihenfolge konnte nicht gelesen werden. Bitte die Seite neu laden und erneut versuchen.', 400);
         }
     }
 
@@ -158,7 +163,7 @@ function handleReorder(PDO $db): void {
     $stmt->execute($ids);
     $missing = array_diff($ids, array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN)));
     if ($missing) {
-        errorResponse('Ruleset not found: ' . implode(', ', $missing), 404);
+        errorResponse('Mindestens ein Ruleset existiert nicht mehr, vermutlich wurde es inzwischen gelöscht. Bitte die Seite neu laden.', 404);
     }
 
     $db->beginTransaction();
