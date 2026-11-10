@@ -21,8 +21,7 @@ export function generateCacheKey(prefix: string, params: Record<string, unknown>
 		.sort()
 		.map(key => `${key}=${JSON.stringify(params[key])}`)
 		.join('&');
-	// Use full hash to avoid collisions - the old .slice(0, 50) caused different queries to share cache entries
-	return `${CACHE_PREFIX}${prefix}_${btoa(sortedParams)}`;
+	return `${CACHE_PREFIX}${prefix}_${sortedParams}`;
 }
 
 /**
