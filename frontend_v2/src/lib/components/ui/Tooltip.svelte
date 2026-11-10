@@ -9,17 +9,62 @@
 		position = 'top'
 	}: Props = $props();
 
-	let isVisible = $state(false);
+	const GAP = 8;
+	const MARGIN = 8;
 
-	let positionClasses = $derived(
-		position === 'top' ? 'bottom-full left-1/2 -translate-x-1/2 mb-2' :
-		position === 'bottom' ? 'top-full left-1/2 -translate-x-1/2 mt-2' :
-		position === 'left' ? 'right-full top-1/2 -translate-y-1/2 mr-2' :
-		'left-full top-1/2 -translate-y-1/2 ml-2'
-	);
+	let isVisible = $state(false);
+	let trigger: HTMLSpanElement;
+	let tip = $state<HTMLDivElement | null>(null);
+	let coords = $state<{ left: number; top: number } | null>(null);
+
+	$effect(() => {
+		if (!isVisible || !tip) {
+			coords = null;
+			return;
+		}
+		place(tip);
+	});
+
+	/** Escapes ancestor stacking contexts so z-50 is global. */
+	function portal(node: HTMLElement) {
+		document.body.appendChild(node);
+		return { destroy: () => node.remove() };
+	}
+
+	/** Fixed positioning, flipped and clamped so the tooltip stays inside the viewport. */
+	function place(el: HTMLDivElement) {
+		const t = trigger.getBoundingClientRect();
+		const b = el.getBoundingClientRect();
+		const centerX = t.left + t.width / 2 - b.width / 2;
+		const centerY = t.top + t.height / 2 - b.height / 2;
+		const above = t.top - b.height - GAP;
+		const below = t.bottom + GAP;
+
+		let left: number;
+		let top: number;
+		if (position === 'top' || position === 'bottom') {
+			left = centerX;
+			const fitsAbove = above >= MARGIN;
+			const fitsBelow = below + b.height <= window.innerHeight - MARGIN;
+			top = position === 'top' ? (fitsAbove || !fitsBelow ? above : below) : (fitsBelow || !fitsAbove ? below : above);
+		} else {
+			top = centerY;
+			const leftSide = t.left - b.width - GAP;
+			const rightSide = t.right + GAP;
+			const fitsLeft = leftSide >= MARGIN;
+			const fitsRight = rightSide + b.width <= window.innerWidth - MARGIN;
+			left = position === 'left' ? (fitsLeft || !fitsRight ? leftSide : rightSide) : (fitsRight || !fitsLeft ? rightSide : leftSide);
+		}
+
+		coords = {
+			left: Math.min(Math.max(left, MARGIN), window.innerWidth - b.width - MARGIN),
+			top: Math.min(Math.max(top, MARGIN), window.innerHeight - b.height - MARGIN)
+		};
+	}
 </script>
 
 <span
+	bind:this={trigger}
 	class="relative inline-flex"
 	onmouseenter={() => isVisible = true}
 	onmouseleave={() => isVisible = false}
@@ -35,9 +80,14 @@
 
 	{#if isVisible}
 		<div
+			bind:this={tip}
+			use:portal
 			id="tooltip"
 			role="tooltip"
-			class="absolute {positionClasses} z-50 whitespace-nowrap rounded border border-border bg-surface-raised px-2 py-1 text-xs text-text-secondary pointer-events-none"
+			class="fixed z-50 w-max max-w-xs rounded border border-border bg-surface-raised px-2 py-1 text-xs text-text-secondary pointer-events-none"
+			style:left="{coords?.left ?? 0}px"
+			style:top="{coords?.top ?? 0}px"
+			style:visibility={coords ? 'visible' : 'hidden'}
 		>
 			{text}
 		</div>

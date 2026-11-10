@@ -27,10 +27,13 @@
 	import {
 		collectItems,
 		computeBundleCoverage,
+		computeEpisodeCoverage,
+		splitTopics,
+		type RulesetEpisodeCoverage,
 		fetchItemsForTopics,
 		getChangeSnapshot
 	} from '$utils/coverage';
-	import type { Media, Ruleset, DurationInfo, TvdbShowData } from '$types';
+	import type { Media, MediathekItem, Ruleset, DurationInfo, TvdbShowData } from '$types';
 	import type {
 		ChangeSnapshot,
 		MediaSuggestions,
@@ -40,7 +43,9 @@
 		SuggestionSummary
 	} from '$types/suggestion';
 	import WizardBuilder from '$components/wizard/WizardBuilder.svelte';
-	import RulesetTile from '$components/rulesets/RulesetTile.svelte';
+	import RulesetRow from '$components/rulesets/RulesetRow.svelte';
+	import RulesetFacet from '$components/rulesets/RulesetFacet.svelte';
+	import { FACET_LABELS, gridColumns, splitFacets } from '$utils/rulesetFacets';
 	import RulesetDiff from '$components/suggestions/RulesetDiff.svelte';
 	import ChangeChips from '$components/suggestions/ChangeChips.svelte';
 	import DraftBar from '$components/suggestions/DraftBar.svelte';
@@ -80,6 +85,12 @@
 		proposedMedia ? role !== 'guest' : role === 'user' || proposalMode
 	);
 	let tvdbEpisodes = $derived(tvdbShowData?.episodes ?? []);
+	/** Regular TVDB episodes aired up to 8 days from now; specials (season 0) excluded. */
+	let tvdbEpisodeCount = $derived.by(() => {
+		const limit = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+		return tvdbEpisodes.filter((e) => e.seasonNumber > 0 && e.aired && e.aired.slice(0, 10) <= limit)
+			.length;
+	});
 
 	let error = $state<string | null>(null);
 	let busy = $state(false);
@@ -164,6 +175,90 @@
 		}
 		return list;
 	});
+
+	let facetSplit = $derived(splitFacets(tiles.map((t) => t.ruleset)));
+
+	// ─── Per-ruleset coverage (first match wins) ─────────────────
+
+	let rowCoverage = $state<{
+		perRuleset: Map<number, RulesetEpisodeCoverage>;
+		max: number;
+		total: number;
+	} | null>(null);
+	let rowCoverageLoading = $state(false);
+	let itemsCache: { key: string; items: MediathekItem[] } | null = null;
+
+	let rowCoverageSignature = $derived(
+		JSON.stringify([
+			effective.map((r) => [
+				r.id,
+				r.topic,
+				r.filters,
+				r.titleRegexRules,
+				r.matchingStrategy,
+				r.seasonRegex,
+				r.episodeRegex
+			]),
+			tvdbEpisodes.length
+		])
+	);
+
+	$effect(() => {
+		const signature = rowCoverageSignature;
+		untrack(() => recomputeRowCoverage(signature));
+	});
+
+	function coverageFor(ruleset: Ruleset) {
+		const coverage = ruleset.id != null ? rowCoverage?.perRuleset.get(ruleset.id) : undefined;
+		if (!coverage) return null;
+		const positionOf = new Map(effective.map((r, i) => [r.id, i + 1]));
+		return {
+			found: coverage.found,
+			unknown: coverage.unknown,
+			shadowedBy: [...coverage.shadowedBy].map(([id, count]) => ({
+				position: positionOf.get(id) ?? 0,
+				count
+			}))
+		};
+	}
+
+	async function recomputeRowCoverage(signature: string) {
+		const rulesets = effective;
+		if (rulesets.length === 0) {
+			rowCoverage = null;
+			return;
+		}
+		const topics = rulesets.map((r) => r.topic);
+		const topicKey = [...new Set(topics.flatMap(splitTopics))].sort().join('|');
+		rowCoverageLoading = true;
+		try {
+			if (itemsCache?.key !== topicKey) {
+				const byTopic = await fetchItemsForTopics(topics);
+				if (signature !== rowCoverageSignature) return;
+				const seen = new Set<string>();
+				const items: MediathekItem[] = [];
+				for (const topic of topics) {
+					for (const item of collectItems(topic, byTopic)) {
+						if (seen.has(item.id)) continue;
+						seen.add(item.id);
+						items.push(item);
+					}
+				}
+				itemsCache = { key: topicKey, items };
+			}
+			const ordered = rulesets.map((r, priority) => ({ ...r, priority }));
+			const result = computeEpisodeCoverage(itemsCache.items, ordered, tvdbEpisodes);
+			rowCoverage = {
+				perRuleset: result.perRuleset,
+				max: Math.max(0, ...[...result.perRuleset.values()].map((c) => c.found)),
+				total: result.total
+			};
+		} catch {
+			if (signature === rowCoverageSignature) rowCoverage = null;
+		} finally {
+			if (signature === rowCoverageSignature) rowCoverageLoading = false;
+		}
+	}
 
 	/** Open proposals other than the one being edited. */
 	let otherOpen = $derived((mediaSuggestions?.open ?? []).filter((s) => s.id !== suggestionId));
@@ -914,21 +1009,46 @@
 		</div>
 	{:else}
 		<div>
-			<div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+			<div class="mb-4">
+			<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 				<h2 class="text-xl font-semibold">
 					Rulesets ({liveRulesets.length !== effective.length
 						? `${liveRulesets.length} → ${effective.length}`
 						: effective.length})
 				</h2>
-				{#if draftActive && !orderIsDefault}
-					<button
-						type="button"
-						class="text-sm text-text-secondary hover:text-text transition-colors"
-						onclick={() => suggestionDraft.resetOrder()}
-					>
-						Reihenfolge zurücksetzen
-					</button>
-				{/if}
+				<div class="flex flex-wrap items-baseline gap-x-4 text-sm">
+					{#if rowCoverage}
+						<span class="text-text-secondary">
+							<span class="font-mono font-medium tabular-nums text-text">{rowCoverage.total}</span>
+							{#if tvdbEpisodeCount > 0}
+								von <span class="font-mono tabular-nums">{tvdbEpisodeCount}</span> TVDB-Folgen erkannt
+							{:else}
+								{rowCoverage.total === 1 ? 'Folge' : 'Folgen'} erkannt
+							{/if}
+						</span>
+					{/if}
+					{#if draftActive && !orderIsDefault}
+						<button
+							type="button"
+							class="text-text-secondary hover:text-text transition-colors"
+							onclick={() => suggestionDraft.resetOrder()}
+						>
+							Reihenfolge zurücksetzen
+						</button>
+					{/if}
+				</div>
+			</div>
+			{#if facetSplit.shared.length > 0}
+				<p class="mt-1.5 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm">
+					<span class="text-text-tertiary">Für alle:</span>
+					{#each facetSplit.shared as facet (facet)}
+						<span class="inline-flex min-w-0 items-baseline gap-1.5">
+							<span class="text-text-tertiary">{FACET_LABELS[facet]}</span>
+							<span class="font-medium text-text"><RulesetFacet ruleset={tiles[0].ruleset} {facet} /></span>
+						</span>
+					{/each}
+				</p>
+			{/if}
 			</div>
 
 			{#if tiles.length === 0}
@@ -942,34 +1062,54 @@
 					{/if}
 				</div>
 			{:else}
-				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-					{#each tiles as tile (tile.ruleset.id ?? tile.position)}
-						{@const stale = tile.change ? staleKeys.has(tile.change.key) : false}
-						<RulesetTile
-							ruleset={tile.ruleset}
-							canEdit={role !== 'guest'}
-							position={role === 'guest' ? null : tile.position}
-							op={tile.change?.op ?? null}
-							{stale}
-							matches={tile.change?.snapshot
-								? {
-										before: tile.change.snapshot.before.matchedByThis,
-										after: tile.change.snapshot.after.matchedByThis
-									}
-								: null}
-							proposals={proposalBadge(tile.ruleset)}
-							canMoveUp={!tile.deleted && tile.position > 1}
-							canMoveDown={!tile.deleted && tile.position < effective.length}
-							onMoveUp={role === 'guest' ? undefined : () => move(tile.position - 1, -1)}
-							onMoveDown={role === 'guest' ? undefined : () => move(tile.position - 1, 1)}
-							onEdit={() => startEdit(tile)}
-							onDelete={() => handleDelete(tile.ruleset)}
-							onDuplicate={() => handleDuplicate(tile.ruleset)}
-							onDiscard={tile.change ? () => discardChange(tile.change!) : undefined}
-							discardLabel={tile.deleted ? 'Wiederherstellen' : 'Änderung verwerfen'}
-							onRebase={stale && tile.change ? () => openChange(tile.change!.key, true) : undefined}
-						/>
-					{/each}
+				<div class="card">
+					<div
+						class="flex flex-col divide-y divide-border md:grid md:gap-x-5"
+						style:grid-template-columns={gridColumns(facetSplit.varying)}
+					>
+						{#if facetSplit.varying.length > 1}
+							<div class="hidden px-4 py-2 text-xs font-medium text-text-tertiary md:col-span-full md:grid md:grid-cols-subgrid">
+								<span class="w-6 text-right">#</span>
+								{#each facetSplit.varying as facet (facet)}
+									<span>{FACET_LABELS[facet]}</span>
+								{/each}
+								<span>Folgen</span>
+								<span></span>
+								<span></span>
+							</div>
+						{/if}
+						{#each tiles as tile (tile.ruleset.id ?? tile.position)}
+							{@const stale = tile.change ? staleKeys.has(tile.change.key) : false}
+							<RulesetRow
+								ruleset={tile.ruleset}
+								facets={facetSplit.varying}
+								canEdit={role !== 'guest'}
+								position={tile.position}
+								coverage={tile.deleted ? null : coverageFor(tile.ruleset)}
+								coverageMax={rowCoverage?.max ?? 0}
+								coverageLoading={rowCoverageLoading && !tile.deleted}
+								op={tile.change?.op ?? null}
+								{stale}
+								matches={tile.change?.snapshot
+									? {
+											before: tile.change.snapshot.before.matchedByThis,
+											after: tile.change.snapshot.after.matchedByThis
+										}
+									: null}
+								proposals={proposalBadge(tile.ruleset)}
+								canMoveUp={!tile.deleted && tile.position > 1}
+								canMoveDown={!tile.deleted && tile.position < effective.length}
+								onMoveUp={role === 'guest' ? undefined : () => move(tile.position - 1, -1)}
+								onMoveDown={role === 'guest' ? undefined : () => move(tile.position - 1, 1)}
+								onEdit={() => startEdit(tile)}
+								onDelete={() => handleDelete(tile.ruleset)}
+								onDuplicate={() => handleDuplicate(tile.ruleset)}
+								onDiscard={tile.change ? () => discardChange(tile.change!) : undefined}
+								discardLabel={tile.deleted ? 'Wiederherstellen' : 'Änderung verwerfen'}
+								onRebase={stale && tile.change ? () => openChange(tile.change!.key, true) : undefined}
+							/>
+						{/each}
+					</div>
 				</div>
 			{/if}
 		</div>

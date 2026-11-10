@@ -13,7 +13,7 @@ import type {
 	SuggestionChange
 } from '$types/suggestion';
 import { evaluateFilters, checkSkipKeywords, buildTitleFromRules } from './regex';
-import { matchEpisodeByStrategy } from './tvdbMatcher';
+import { matchEpisodeByStrategy, type TvdbMatchResult } from './tvdbMatcher';
 import { queryByTopic } from '$api/mediathekview';
 
 export type MatchStage = 'ok' | 'topic' | 'skip' | 'filter' | 'title' | 'tvdb';
@@ -41,23 +41,31 @@ export function matchStage(
 	ruleset: Ruleset,
 	tvdbEpisodes: TvdbEpisode[]
 ): MatchStage {
-	const topics = splitTopics(ruleset.topic);
-	if (!topics.some((t) => item.topic.toLowerCase().includes(t))) return 'topic';
+	return evaluateItem(item, ruleset, tvdbEpisodes).stage;
+}
 
-	if (checkSkipKeywords(item.title) !== null) return 'skip';
+function evaluateItem(
+	item: MediathekItem,
+	ruleset: Ruleset,
+	tvdbEpisodes: TvdbEpisode[]
+): { stage: MatchStage; tvdb?: TvdbMatchResult } {
+	const topics = splitTopics(ruleset.topic);
+	if (!topics.some((t) => item.topic.toLowerCase().includes(t))) return { stage: 'topic' };
+
+	if (checkSkipKeywords(item.title) !== null) return { stage: 'skip' };
 
 	if (ruleset.filters.length > 0) {
 		const results = evaluateFilters(item, ruleset.filters);
-		if (!results.every((r) => r.passed)) return 'filter';
+		if (!results.every((r) => r.passed)) return { stage: 'filter' };
 	}
 
 	if (ruleset.titleRegexRules.length > 0) {
 		const { finalTitle } = buildTitleFromRules(item, ruleset.titleRegexRules);
-		if (finalTitle === null) return 'title';
+		if (finalTitle === null) return { stage: 'title' };
 	}
 
 	if (tvdbEpisodes.length > 0) {
-		const result = matchEpisodeByStrategy(
+		const tvdb = matchEpisodeByStrategy(
 			item,
 			tvdbEpisodes,
 			ruleset.matchingStrategy,
@@ -65,10 +73,73 @@ export function matchStage(
 			ruleset.seasonRegex,
 			ruleset.episodeRegex
 		);
-		if (!result.matched) return 'tvdb';
+		return { stage: tvdb.matched ? 'ok' : 'tvdb', tvdb };
 	}
 
-	return 'ok';
+	return { stage: 'ok' };
+}
+
+export interface RulesetEpisodeCoverage {
+	/** Distinct episodes first recognised by this ruleset. */
+	found: number;
+	/** Distinct extracted values with no TVDB episode. */
+	unknown: number;
+	/** Episodes this ruleset also recognises, keyed by the earlier ruleset's id. */
+	shadowedBy: Map<number, number>;
+}
+
+/**
+ * Coverage counted in distinct episodes, not Mediathek items.
+ * Each episode belongs to the first ruleset (in list order) that recognises it.
+ * Without TVDB data every matching item counts as its own episode.
+ */
+export function computeEpisodeCoverage(
+	items: MediathekItem[],
+	orderedRulesets: Ruleset[],
+	tvdbEpisodes: TvdbEpisode[]
+): { perRuleset: Map<number, RulesetEpisodeCoverage>; total: number } {
+	const owner = new Map<string, number>();
+	const perRuleset = new Map<number, RulesetEpisodeCoverage>();
+
+	orderedRulesets.forEach((ruleset, index) => {
+		const id = ruleset.id ?? -(1000 + index);
+		const episodes = new Set<string>();
+		const unknown = new Set<string>();
+
+		for (const item of items) {
+			let evaluated: ReturnType<typeof evaluateItem>;
+			try {
+				evaluated = evaluateItem(item, ruleset, tvdbEpisodes);
+			} catch {
+				continue;
+			}
+			const { stage, tvdb } = evaluated;
+			if (stage === 'ok') {
+				const episode = tvdb?.episode;
+				episodes.add(
+					episode
+						? `ep:${episode.id ?? `${episode.seasonNumber}x${episode.episodeNumber}`}`
+						: `item:${item.id}`
+				);
+			} else if (stage === 'tvdb' && tvdb && !tvdb.error && tvdb.matchDetails.searchedValue) {
+				unknown.add(tvdb.matchDetails.searchedValue);
+			}
+		}
+
+		const coverage: RulesetEpisodeCoverage = { found: 0, unknown: unknown.size, shadowedBy: new Map() };
+		for (const key of episodes) {
+			const earlier = owner.get(key);
+			if (earlier === undefined) {
+				owner.set(key, id);
+				coverage.found++;
+			} else {
+				coverage.shadowedBy.set(earlier, (coverage.shadowedBy.get(earlier) ?? 0) + 1);
+			}
+		}
+		perRuleset.set(id, coverage);
+	});
+
+	return { perRuleset, total: owner.size };
 }
 
 export function matchesRuleset(
