@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/*
+ * Ruleset list switches from stacked rows to a table once its card is wide enough for the
+ * varying columns. The card sets data-ruleset-columns (see rulesetTableDensity) and is the container.
+ */
+@custom-variant ruleset-table {
+	@container (min-width: 64rem) {
+		&:where([data-ruleset-columns="normal"] *) {
+			@slot;
+		}
+	}
+	@container (min-width: 72rem) {
+		&:where([data-ruleset-columns="dense"] *) {
+			@slot;
+		}
+	}
+}
+
 /* ============================================================
    PALETTE DEFINITIONS
    6 combos: signal/indigo/emerald × light/dark

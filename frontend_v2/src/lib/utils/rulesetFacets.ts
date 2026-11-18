@@ -12,13 +12,26 @@ export const FACET_LABELS: Record<Facet, string> = {
 	filters: 'Filter'
 };
 
-const FACET_TRACKS: Record<Facet, string> = {
+const PATTERN_FACETS: Facet[] = ['extraction', 'titleRules'];
+
+/**
+ * Pattern columns get a real minimum: auto tracks grow to their max-content before fr tracks
+ * get any free space, so a zero minimum starves the patterns. Two pattern columns share the
+ * budget so the table still fits the container width it switches on at (see rulesetTableDensity).
+ */
+const SINGLE_PATTERN_TRACK = 'minmax(12rem, 1fr)';
+const SHARED_PATTERN_TRACK = 'minmax(8rem, 1fr)';
+
+const TEXT_TRACKS: Record<Exclude<Facet, 'extraction' | 'titleRules'>, string> = {
 	topic: 'auto',
 	strategy: 'auto',
-	extraction: 'minmax(0, 1fr)',
-	titleRules: 'minmax(0, 1fr)',
-	filters: 'auto'
+	filters: 'fit-content(12rem)'
 };
+
+/** Bar (7rem) + count (5rem) + gap; longer shadow reasons wrap below. */
+const COVERAGE_TRACK = 'fit-content(13rem)';
+/** Badges and the discard button stack instead of widening the row. */
+const ACTIONS_TRACK = 'fit-content(10rem)';
 
 function facetKey(ruleset: Ruleset, facet: Facet): string {
 	switch (facet) {
@@ -51,9 +64,25 @@ export function splitFacets(rulesets: Ruleset[]): { shared: Facet[]; varying: Fa
 }
 
 export function gridColumns(varying: Facet[]): string {
-	const tracks = varying.length ? varying.map((f) => FACET_TRACKS[f]) : ['minmax(0, 1fr)'];
-	const meta = tracks.some((t) => t.includes('fr')) ? 'auto' : 'minmax(0, 1fr)';
-	return ['auto', ...tracks, 'auto', meta, 'auto'].join(' ');
+	const patternCount = varying.filter((facet) => PATTERN_FACETS.includes(facet)).length;
+	const patternTrack = patternCount > 1 ? SHARED_PATTERN_TRACK : SINGLE_PATTERN_TRACK;
+	const tracks = varying.length
+		? varying.map((facet) =>
+				facet === 'extraction' || facet === 'titleRules' ? patternTrack : TEXT_TRACKS[facet]
+			)
+		: ['minmax(0, 1fr)'];
+	const actionsTrack = tracks.some((track) => track.includes('fr')) ? ACTIONS_TRACK : 'minmax(0, 1fr)';
+	return ['auto', ...tracks, COVERAGE_TRACK, actionsTrack, 'auto'].join(' ');
+}
+
+/**
+ * Picks the container width at which the list becomes a table (`ruleset-table:` variant in
+ * app.css): 64rem fits one pattern column plus one text facet, anything more needs 72rem.
+ */
+export function rulesetTableDensity(varying: Facet[]): 'normal' | 'dense' {
+	const patternCount = varying.filter((facet) => PATTERN_FACETS.includes(facet)).length;
+	const textCount = varying.length - patternCount;
+	return patternCount <= 1 && textCount <= 1 ? 'normal' : 'dense';
 }
 
 export interface PatternPart {
@@ -61,12 +90,16 @@ export interface PatternPart {
 	group: boolean;
 }
 
-/** Splits a regex into plain text and top-level capture groups. */
+/**
+ * Splits a regex at its top-level groups. Capture groups are flagged `group`; lookarounds and
+ * non-capturing groups become their own plain parts so the pattern can wrap between tokens.
+ */
 export function splitCaptureGroups(pattern: string): PatternPart[] {
 	const parts: PatternPart[] = [];
 	let buffer = '';
 	let depth = 0;
 	let inClass = false;
+	let isCapturing = false;
 	const flush = (group: boolean) => {
 		if (buffer) parts.push({ text: buffer, group });
 		buffer = '';
@@ -83,9 +116,10 @@ export function splitCaptureGroups(pattern: string): PatternPart[] {
 		} else if (c === '[') {
 			inClass = true;
 			buffer += c;
-		} else if (c === '(' && depth === 0 && pattern[i + 1] !== '?') {
+		} else if (c === '(' && depth === 0) {
 			flush(false);
 			depth = 1;
+			isCapturing = pattern[i + 1] !== '?';
 			buffer += c;
 		} else if (c === '(' && depth > 0) {
 			depth++;
@@ -93,12 +127,12 @@ export function splitCaptureGroups(pattern: string): PatternPart[] {
 		} else if (c === ')' && depth > 0) {
 			depth--;
 			buffer += c;
-			if (depth === 0) flush(true);
+			if (depth === 0) flush(isCapturing);
 		} else {
 			buffer += c;
 		}
 	}
-	flush(depth > 0);
+	flush(depth > 0 && isCapturing);
 	return parts;
 }
 

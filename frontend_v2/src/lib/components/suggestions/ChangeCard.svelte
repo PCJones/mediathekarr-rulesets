@@ -10,7 +10,8 @@
 	interface Props {
 		change: SuggestionChange;
 		suggestionId: number;
-		mediaId?: number | null;
+		/** Rulesets page the wizard deep links open on: the media page, or the proposal's own page for new media. */
+		rulesetsPath: string;
 		/** Author or admin on an open proposal — gets the edit deep link instead of the view one. */
 		canEdit?: boolean;
 		stale?: boolean;
@@ -20,7 +21,7 @@
 	let {
 		change,
 		suggestionId,
-		mediaId = null,
+		rulesetsPath,
 		canEdit = false,
 		stale = false,
 		staleAction
@@ -33,9 +34,7 @@
 	let strategy = $derived(body ? strategyLabel(body.matchingStrategy, true) : null);
 
 	let href = $derived(
-		mediaId
-			? `/media/${mediaId}/rulesets?${canEdit ? 'draft' : 'view'}=suggestion:${suggestionId}&change=${encodeURIComponent(change.key)}`
-			: null
+		`${rulesetsPath}?${canEdit ? 'draft' : 'view'}=suggestion:${suggestionId}&change=${encodeURIComponent(change.key)}`
 	);
 
 	let snapshot = $derived(change.snapshot);
@@ -80,12 +79,10 @@
 			{:else}
 				<span>Keine Messdaten</span>
 			{/if}
-			{#if href}
-				<span class="text-border-strong" aria-hidden="true">|</span>
-				<a {href} target="_blank" rel="noopener" class="text-accent hover:underline">
-					{canEdit ? 'Im Wizard öffnen' : 'Ansehen'} ↗
-				</a>
-			{/if}
+			<span class="text-border-strong" aria-hidden="true">|</span>
+			<a {href} target="_blank" rel="noopener" class="text-accent hover:underline">
+				{canEdit ? 'Im Wizard öffnen' : 'Ansehen'} ↗
+			</a>
 		</span>
 	</div>
 

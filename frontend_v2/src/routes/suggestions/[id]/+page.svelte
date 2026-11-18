@@ -127,8 +127,21 @@
 
 	let isOpen = $derived(suggestion?.status === 'open');
 	let staleEntries = $derived(suggestion?.stale ?? []);
+	/** Proposals for media that does not exist yet open the wizard on their own page. */
+	let rulesetsPath = $derived(
+		suggestion
+			? mediaId
+				? `/media/${mediaId}/rulesets`
+				: `/suggestions/${suggestion.id}/rulesets`
+			: null
+	);
 	let editHref = $derived(
-		suggestion && mediaId ? `/media/${mediaId}/rulesets?draft=suggestion:${suggestion.id}` : null
+		suggestion && rulesetsPath ? `${rulesetsPath}?draft=suggestion:${suggestion.id}` : null
+	);
+	let viewHref = $derived(
+		suggestion && rulesetsPath && suggestion.bundle.changes.length > 0
+			? `${rulesetsPath}?view=suggestion:${suggestion.id}`
+			: null
 	);
 
 	let actionError = $state<string | null>(null);
@@ -615,11 +628,6 @@
 
 			{#if $authStore.isAuthenticated}
 				<section class="space-y-2">
-					{#if canEdit && !editHref}
-						<p class="text-xs text-text-secondary">
-							Vorschläge für {isMovie ? 'neue Filme' : 'neue Serien'} lassen sich derzeit nur über eine Kopie ändern.
-						</p>
-					{/if}
 					<button
 						type="button"
 						class="btn btn-sm"
@@ -700,6 +708,9 @@
 			</div>
 			<div class="flex items-start gap-2 shrink-0">
 				<VoteButton suggestionId={suggestion.id} bind:votes bind:hasVoted />
+				{#if viewHref}
+					<a href={viewHref} class="btn h-9" title="Im Wizard ansehen, ohne etwas zu ändern">Ansehen</a>
+				{/if}
 				{#if canEdit && editHref}
 					<a href={editHref} class="btn h-9">Bearbeiten</a>
 				{/if}
@@ -820,7 +831,7 @@
 					<ChangeCard
 						{change}
 						suggestionId={suggestion.id}
-						{mediaId}
+						rulesetsPath={rulesetsPath ?? `/suggestions/${suggestion.id}/rulesets`}
 						{canEdit}
 						stale={staleKeys.has(change.key)}
 					>

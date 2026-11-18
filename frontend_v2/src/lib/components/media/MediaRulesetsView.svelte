@@ -45,7 +45,7 @@
 	import WizardBuilder from '$components/wizard/WizardBuilder.svelte';
 	import RulesetRow from '$components/rulesets/RulesetRow.svelte';
 	import RulesetFacet from '$components/rulesets/RulesetFacet.svelte';
-	import { FACET_LABELS, gridColumns, splitFacets } from '$utils/rulesetFacets';
+	import { FACET_LABELS, gridColumns, rulesetTableDensity, splitFacets } from '$utils/rulesetFacets';
 	import RulesetDiff from '$components/suggestions/RulesetDiff.svelte';
 	import ChangeChips from '$components/suggestions/ChangeChips.svelte';
 	import DraftBar from '$components/suggestions/DraftBar.svelte';
@@ -407,11 +407,15 @@
 					));
 
 			const rev = await getSuggestionRevision(id, detail.currentRevision);
+			const draftMedia = {
+				mediaId: detail.media?.id ?? (media.id > 0 ? media.id : null),
+				proposedMedia: detail.media ? null : detail.proposedMedia
+			};
 			if (keepLocal) {
-				suggestionDraft.open(key, { mediaId: media.id, suggestionId: id });
+				suggestionDraft.open(key, { ...draftMedia, suggestionId: id });
 				suggestionDraft.adoptRevision(rev);
 			} else {
-				suggestionDraft.loadFromRevision(id, rev, { mediaId: detail.media?.id ?? media.id });
+				suggestionDraft.loadFromRevision(id, rev, draftMedia);
 			}
 
 			const localKey = mediaDraftKey(media.id);
@@ -693,14 +697,15 @@
 	}
 
 	function cancelWizard() {
-		if (proposedMedia && draft.changes.length === 0) {
+		// view mode has no draft open, so it must be checked before the empty-draft discard below
+		if (viewDetail) {
+			goto(`/suggestions/${viewDetail.id}`);
+			return;
+		}
+		if (proposedMedia && !suggestionId && draft.changes.length === 0) {
 			if (!confirm('Vorschlag verwerfen und zurück zur Übersicht?')) return;
 			suggestionDraft.clear();
 			goto('/media');
-			return;
-		}
-		if (viewDetail) {
-			goto(`/suggestions/${viewDetail.id}`);
 			return;
 		}
 		closeWizard();
@@ -831,9 +836,10 @@
 		} else if (!confirm('Alle gesammelten Änderungen verwerfen?')) {
 			return;
 		}
+		const discardedSuggestionId = suggestionId;
 		suggestionDraft.clear();
 		proposalMode = false;
-		if (proposedMedia) goto('/media');
+		if (proposedMedia) goto(discardedSuggestionId ? `/suggestions/${discardedSuggestionId}` : '/media');
 	}
 
 	// ─── Display helpers ─────────────────────────────────────────
@@ -853,7 +859,7 @@
 				? 'abgelehnt'
 				: viewDetail?.status === 'withdrawn'
 					? 'zurückgezogen'
-					: 'nicht bearbeitbar'
+					: 'offen'
 	);
 </script>
 
@@ -1062,18 +1068,18 @@
 					{/if}
 				</div>
 			{:else}
-				<div class="card">
+				<div class="card @container" data-ruleset-columns={rulesetTableDensity(facetSplit.varying)}>
 					<div
-						class="flex flex-col divide-y divide-border md:grid md:gap-x-5"
+						class="flex flex-col divide-y divide-border ruleset-table:grid ruleset-table:gap-x-5"
 						style:grid-template-columns={gridColumns(facetSplit.varying)}
 					>
 						{#if facetSplit.varying.length > 1}
-							<div class="hidden px-4 py-2 text-xs font-medium text-text-tertiary md:col-span-full md:grid md:grid-cols-subgrid">
+							<div class="hidden px-4 py-2 text-xs font-medium text-text-tertiary ruleset-table:col-span-full ruleset-table:grid ruleset-table:grid-cols-subgrid">
 								<span class="w-6 text-right">#</span>
 								{#each facetSplit.varying as facet (facet)}
-									<span>{FACET_LABELS[facet]}</span>
+									<span class="whitespace-nowrap">{FACET_LABELS[facet]}</span>
 								{/each}
-								<span>Folgen</span>
+								<span class="whitespace-nowrap">Folgen</span>
 								<span></span>
 								<span></span>
 							</div>

@@ -98,7 +98,7 @@
 </script>
 
 <div
-	class="ruleset-row relative flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 transition-colors last:rounded-b-lg md:col-span-full md:grid md:grid-cols-subgrid {opMarker} {canOpen ? 'hover:bg-surface-raised' : ''}"
+	class="ruleset-row relative flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 transition-colors last:rounded-b-lg ruleset-table:col-span-full ruleset-table:grid ruleset-table:grid-cols-subgrid {opMarker} {canOpen ? 'hover:bg-surface-raised' : ''}"
 	class:opacity-60={isDeleted}
 >
 	{#if canOpen}
@@ -113,14 +113,17 @@
 	<span class="w-6 text-right font-mono text-base tabular-nums text-text-tertiary">{position}</span>
 
 	{#each facets as facet (facet)}
+		{@const isPattern = facet === 'extraction' || facet === 'titleRules'}
 		<div
-			class="min-w-0 {facet === 'extraction' || facet === 'titleRules'
-				? 'basis-full md:basis-auto'
-				: 'text-sm font-medium text-text'}"
+			class={isPattern ? 'min-w-0 basis-full ruleset-table:basis-auto' : 'text-sm font-medium text-text'}
 			class:line-through={isDeleted}
 		>
 			{#if facets.length > 1}
-				<span class="mr-1.5 text-xs text-text-tertiary md:hidden">{FACET_LABELS[facet]}</span>
+				<!-- stacked rows: pattern labels sit above so the pattern width never decides the label position -->
+				<span
+					class="text-xs text-text-tertiary ruleset-table:hidden {isPattern ? 'mb-0.5 block' : 'mr-1.5'}"
+					>{FACET_LABELS[facet]}</span
+				>
 			{/if}
 			<RulesetFacet {ruleset} {facet} prominent />
 		</div>
@@ -128,7 +131,7 @@
 		<span class="text-sm text-text-tertiary">Keine Unterschiede</span>
 	{/each}
 
-	<div class="flex min-w-0 flex-col items-end gap-0.5">
+	<div class="flex flex-col items-end gap-0.5">
 		{#if coverage}
 			<div class="flex items-center gap-2.5">
 				<span class="h-1.5 w-28 overflow-hidden rounded-full bg-border">
@@ -182,7 +185,7 @@
 	</div>
 
 	<div
-		class="row-controls ml-auto flex items-center gap-0.5 transition-opacity md:ml-0"
+		class="row-controls ml-auto flex items-center gap-0.5 transition-opacity ruleset-table:ml-0"
 	>
 		{#if canEdit && !isDeleted}
 			{#if onMoveUp}
