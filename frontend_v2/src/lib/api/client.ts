@@ -17,6 +17,14 @@ export function getAuthToken(): string | null {
 	return localStorage.getItem('token');
 }
 
+type UnauthorizedHandler = () => void;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+/** Register a callback that runs when the server rejects the stored token (401). */
+export function onUnauthorized(handler: UnauthorizedHandler): void {
+	unauthorizedHandler = handler;
+}
+
 export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
 	const token = getAuthToken();
 
@@ -34,6 +42,7 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
 	if (!response.ok) {
 		if (response.status === 401 && token) {
 			localStorage.removeItem('token');
+			unauthorizedHandler?.();
 		}
 		const fallback =
 			response.status === 401

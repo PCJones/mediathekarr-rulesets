@@ -5,12 +5,22 @@
 
 import { writable, derived } from 'svelte/store';
 import type { UserRole, AuthUser } from '$types/auth';
-import { isLoggedIn, getToken, logout as apiLogout } from '$api/auth';
+import { getToken, logout as apiLogout } from '$api/auth';
+import { onUnauthorized } from '$api/client';
 
 interface AuthState {
 	isAuthenticated: boolean;
 	user: AuthUser | null;
 	isLoading: boolean;
+}
+
+interface TokenPayload {
+	userId?: number | string;
+	username?: string;
+	email?: string;
+	sub?: string;
+	role?: UserRole;
+	exp?: number;
 }
 
 const initialState: AuthState = {
@@ -19,48 +29,95 @@ const initialState: AuthState = {
 	isLoading: true
 };
 
+const loggedOutState: AuthState = {
+	isAuthenticated: false,
+	user: null,
+	isLoading: false
+};
+
+/** setTimeout overflows above ~24.8 days; re-check instead of waiting that long in one go. */
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
+function decodeTokenPayload(token: string): TokenPayload | null {
+	try {
+		const base64UrlPayload = token.split('.')[1];
+		const base64Payload = base64UrlPayload.replace(/-/g, '+').replace(/_/g, '/');
+		return JSON.parse(atob(base64Payload)) as TokenPayload;
+	} catch {
+		return null;
+	}
+}
+
+function isTokenExpired(payload: TokenPayload): boolean {
+	return typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now();
+}
+
 function createAuthStore() {
-	const { subscribe, set, update } = writable<AuthState>(initialState);
+	const { subscribe, set } = writable<AuthState>(initialState);
+	let expiryTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function clearExpiryTimer() {
+		if (expiryTimer) {
+			clearTimeout(expiryTimer);
+			expiryTimer = null;
+		}
+	}
+
+	function logout() {
+		clearExpiryTimer();
+		apiLogout();
+		set(loggedOutState);
+	}
+
+	function scheduleExpiry(expiresAtSeconds: number) {
+		clearExpiryTimer();
+		const millisecondsUntilExpiry = expiresAtSeconds * 1000 - Date.now();
+		expiryTimer = setTimeout(
+			() => {
+				expiryTimer = null;
+				init();
+			},
+			Math.min(Math.max(millisecondsUntilExpiry, 0), MAX_TIMER_DELAY_MS)
+		);
+	}
+
+	/** Initialize auth state from stored token; an expired or unreadable token counts as logged out. */
+	function init() {
+		const token = getToken();
+		const payload = token ? decodeTokenPayload(token) : null;
+
+		if (!payload || isTokenExpired(payload)) {
+			logout();
+			return;
+		}
+
+		const email = payload.email || payload.sub || '';
+		const username = payload.username || '';
+		set({
+			isAuthenticated: true,
+			user: {
+				id: Number(payload.userId) || 0,
+				email,
+				username,
+				role: payload.role || 'user',
+				displayName: username || email.split('@')[0]
+			},
+			isLoading: false
+		});
+
+		if (typeof payload.exp === 'number') {
+			scheduleExpiry(payload.exp);
+		} else {
+			clearExpiryTimer();
+		}
+	}
+
+	// The server rejected the token (expired, revoked, re-keyed): reflect that in the UI.
+	onUnauthorized(logout);
 
 	return {
 		subscribe,
-
-		/** Initialize auth state from stored token */
-		init: () => {
-			const authenticated = isLoggedIn();
-			if (authenticated) {
-				// Decode role from JWT token (simplified - in production, validate server-side)
-				const token = getToken();
-				let role: UserRole = 'user';
-				let email = '';
-				let username = '';
-				let id = 0;
-
-				if (token) {
-					try {
-						const payload = JSON.parse(atob(token.split('.')[1]));
-						role = payload.role || 'user';
-						email = payload.email || payload.sub || '';
-						username = payload.username || '';
-						id = Number(payload.userId) || 0;
-					} catch {
-						// Token parse failed, use defaults
-					}
-				}
-
-				set({
-					isAuthenticated: true,
-					user: { id, email, username, role, displayName: username || email.split('@')[0] },
-					isLoading: false
-				});
-			} else {
-				set({
-					isAuthenticated: false,
-					user: null,
-					isLoading: false
-				});
-			}
-		},
+		init,
 
 		/** Set authenticated user after login */
 		setUser: (user: AuthUser) => {
@@ -72,14 +129,7 @@ function createAuthStore() {
 		},
 
 		/** Log out and clear state */
-		logout: () => {
-			apiLogout();
-			set({
-				isAuthenticated: false,
-				user: null,
-				isLoading: false
-			});
-		}
+		logout
 	};
 }
 
